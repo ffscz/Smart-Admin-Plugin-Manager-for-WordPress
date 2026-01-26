@@ -633,3 +633,10 @@ This plugin modifies core WordPress plugin loading behavior. While extensively t
 - Keep plugin updated to latest version
 
 ⚡⚡⚡The authors are not responsible for data loss or functionality issues caused by misconfiguration.⚡⚡⚡
+
+<img width="1498" height="1097" alt="sapm_4" src="https://github.com/user-attachments/assets/7caa3852-794f-43df-a226-debb4f865e93" />
+<img width="1544" height="1106" alt="sapm_3" src="https://github.com/user-attachments/assets/81eece00-9d78-4be0-830f-a1ef74140ab8" />
+<img width="1561" height="1118" alt="sapm_2" src="https://github.com/user-attachments/assets/89f2826c-1327-4839-beb2-a847da86cb44" />
+<img width="1922" height="1084" alt="sapm_1" src="https://github.com/user-attachments/assets/3e079041-3102-4bf7-8f51-c116dd8ff311" />
+<img width="1496" height="1068" alt="sapm_5" src="https://github.com/user-attachments/assets/1be466c1-342f-4f24-9564-1e52ee177dec" />
+
