@@ -44,7 +44,7 @@ The plugin operates at the core WordPress level using MU-plugins mechanism, inte
 
 ### Advanced Features
 
-#### 1. Automatic Mode with AI-Suggested Rules
+#### 1. Automatic Mode with Auto-Suggested Rules
 - **Sampling-Based Analysis:** Monitors plugin performance across admin screens
 - **Confidence Scoring:** Each suggestion includes confidence level (0-100%)
 - **Contextual Intelligence:** Recognizes plugin purposes and screen relevance
@@ -449,7 +449,7 @@ This plugin is actively developed and maintained. While stable for production us
 ### Changelog
 
 **1.2.0 (Current):**
-- Added Automatic Mode with AI suggestions
+- Added Automatic Mode with auto suggestions
 - Database storage for sampling data
 - Update Optimizer strategies
 - Dependency cascade blocking
