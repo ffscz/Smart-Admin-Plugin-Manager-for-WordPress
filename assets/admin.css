@@ -1,0 +1,952 @@
+/* CSS Custom Properties (Variables) */
+:root {
+    /* Colors */
+    --sapm-primary: #2563eb;
+    --sapm-primary-hover: #1d4ed8;
+    --sapm-primary-light: #eff6ff;
+    --sapm-success: #059669;
+    --sapm-success-light: #d1fae5;
+    --sapm-success-border: #6ee7b7;
+    --sapm-danger: #dc2626;
+    --sapm-danger-light: #fee2e2;
+    --sapm-danger-border: #fca5a5;
+    --sapm-warning: #d97706;
+    --sapm-warning-light: #fef3c7;
+    --sapm-warning-border: #fcd34d;
+    --sapm-gray-50: #f9fafb;
+    --sapm-gray-100: #f3f4f6;
+    --sapm-gray-200: #e5e7eb;
+    --sapm-gray-300: #d1d5db;
+    --sapm-gray-400: #9ca3af;
+    --sapm-gray-500: #6b7280;
+    --sapm-gray-600: #4b5563;
+    --sapm-gray-700: #374151;
+    --sapm-gray-800: #1f2937;
+    --sapm-gray-900: #111827;
+    
+    /* Shadows */
+    --sapm-shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    --sapm-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+    --sapm-shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+    --sapm-shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+    
+    /* Radius */
+    --sapm-radius-sm: 6px;
+    --sapm-radius: 8px;
+    --sapm-radius-lg: 12px;
+    --sapm-radius-xl: 16px;
+    --sapm-radius-full: 9999px;
+    
+    /* Transitions */
+    --sapm-transition: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+    --sapm-transition-slow: 300ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Base Container */
+.sapm-wrap {
+    max-width: 1280px;
+    padding: 0 8px;
+}
+
+.sapm-wrap h1 {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--sapm-gray-900);
+    margin-bottom: 1.5rem;
+    letter-spacing: -0.025em;
+}
+
+/* Screen Groups - Card Style */
+.sapm-screen-group {
+    margin-bottom: 1.5rem;
+    background: #fff;
+    border: 1px solid var(--sapm-gray-200);
+    border-radius: var(--sapm-radius-lg);
+    box-shadow: var(--sapm-shadow);
+    overflow: hidden;
+    transition: box-shadow var(--sapm-transition);
+}
+
+.sapm-screen-group:hover {
+    box-shadow: var(--sapm-shadow-md);
+}
+
+/* Group Header */
+.sapm-group-header {
+    background: linear-gradient(to bottom, #fff, var(--sapm-gray-50));
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid var(--sapm-gray-200);
+    cursor: pointer;
+    transition: background var(--sapm-transition);
+    user-select: none;
+}
+
+.sapm-group-header:hover {
+    background: linear-gradient(to bottom, var(--sapm-primary-light), #fff);
+}
+
+.sapm-group-header h3 {
+    margin: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: var(--sapm-gray-800);
+    letter-spacing: -0.01em;
+}
+
+.sapm-group-header .dashicons {
+    transition: transform var(--sapm-transition);
+    color: var(--sapm-gray-400);
+    font-size: 18px;
+}
+
+.sapm-group-header:hover .dashicons {
+    color: var(--sapm-primary);
+}
+
+.sapm-group-header.collapsed .dashicons {
+    transform: rotate(-90deg);
+}
+
+/* Group Content */
+.sapm-group-content {
+    padding: 0;
+    display: block;
+}
+
+.sapm-group-content.hidden {
+    display: none;
+}
+
+/* Screen Rows */
+.sapm-screen-row {
+    display: flex;
+    border-bottom: 1px solid var(--sapm-gray-100);
+    transition: background var(--sapm-transition);
+}
+
+.sapm-screen-row:last-child {
+    border-bottom: none;
+}
+
+.sapm-screen-row:hover {
+    background: var(--sapm-gray-50);
+}
+
+.sapm-screen-name {
+    width: 280px;
+    min-width: 280px;
+    padding: 1rem 1.25rem;
+    background: var(--sapm-gray-50);
+    border-right: 1px solid var(--sapm-gray-100);
+    font-weight: 500;
+    font-size: 0.8125rem;
+    color: var(--sapm-gray-700);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.sapm-screen-name small {
+    color: var(--sapm-gray-500);
+    font-weight: 400;
+    margin-top: 0.25rem;
+}
+
+.sapm-screen-plugins {
+    flex: 1;
+    padding: 0.875rem 1.25rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: center;
+    align-content: flex-start;
+}
+
+/* Primary Group Row */
+.sapm-screen-row-group .sapm-screen-name {
+    background: linear-gradient(135deg, var(--sapm-primary-light) 0%, #dbeafe 100%);
+    font-weight: 600;
+    color: var(--sapm-gray-900);
+    border-right-color: #bfdbfe;
+}
+
+.sapm-screen-row-group .sapm-screen-plugins {
+    background: linear-gradient(to right, #f8faff, #fff);
+}
+
+/* Plugin Tags - Modern Pills */
+.sapm-plugin-tag {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.375rem 0.75rem;
+    border-radius: var(--sapm-radius-full);
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all var(--sapm-transition);
+    border: 1.5px solid transparent;
+    letter-spacing: 0.01em;
+    white-space: nowrap;
+}
+
+.sapm-plugin-tag:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--sapm-shadow-md);
+}
+
+.sapm-plugin-tag:active {
+    transform: translateY(0);
+}
+
+/* Tag States */
+.sapm-plugin-tag.enabled {
+    background: var(--sapm-success-light);
+    color: var(--sapm-success);
+    border-color: var(--sapm-success-border);
+}
+
+.sapm-plugin-tag.enabled:hover {
+    background: #a7f3d0;
+}
+
+.sapm-plugin-tag.disabled {
+    background: var(--sapm-danger-light);
+    color: var(--sapm-danger);
+    border-color: var(--sapm-danger-border);
+}
+
+.sapm-plugin-tag.disabled:hover {
+    background: #fecaca;
+}
+
+.sapm-plugin-tag.defer {
+    background: var(--sapm-warning-light);
+    color: var(--sapm-warning);
+    border-color: var(--sapm-warning-border);
+}
+
+.sapm-plugin-tag.defer:hover {
+    background: #fde68a;
+}
+
+.sapm-plugin-tag.default {
+    background: var(--sapm-gray-100);
+    color: var(--sapm-gray-600);
+    border-color: var(--sapm-gray-300);
+}
+
+.sapm-plugin-tag.default:hover {
+    background: var(--sapm-gray-200);
+}
+
+/* Inherited States */
+.sapm-plugin-tag.inherited {
+    border-style: dashed;
+    opacity: 0.85;
+}
+
+.sapm-plugin-tag.inherited:hover {
+    opacity: 1;
+}
+
+.sapm-plugin-tag.inherited[data-inherited-state="enabled"] {
+    background: var(--sapm-success-light);
+    color: var(--sapm-success);
+    border-color: var(--sapm-success);
+}
+
+.sapm-plugin-tag.inherited[data-inherited-state="disabled"] {
+    background: var(--sapm-danger-light);
+    color: var(--sapm-danger);
+    border-color: var(--sapm-danger);
+}
+
+.sapm-plugin-tag.inherited[data-inherited-state="defer"] {
+    background: var(--sapm-warning-light);
+    color: var(--sapm-warning);
+    border-color: var(--sapm-warning);
+}
+
+.sapm-plugin-tag .dashicons {
+    font-size: 14px;
+    width: 14px;
+    height: 14px;
+    margin-right: 0.375rem;
+}
+
+/* Current Screen Card */
+.sapm-current-screen {
+    background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+    padding: 1.25rem;
+    border: 1px solid #fcd34d;
+    border-radius: var(--sapm-radius-lg);
+    margin-bottom: 1.5rem;
+    box-shadow: var(--sapm-shadow-sm);
+}
+
+.sapm-current-screen strong {
+    color: var(--sapm-gray-700);
+    font-size: 0.8125rem;
+}
+
+.sapm-current-screen code {
+    background: rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(4px);
+    padding: 0.25rem 0.625rem;
+    border-radius: var(--sapm-radius-sm);
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--sapm-gray-800);
+    border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+/* Legend - Compact Horizontal */
+.sapm-legend {
+    display: flex;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+    margin-bottom: 1.5rem;
+    padding: 1rem 1.25rem;
+    background: #fff;
+    border-radius: var(--sapm-radius-lg);
+    border: 1px solid var(--sapm-gray-200);
+    box-shadow: var(--sapm-shadow-sm);
+}
+
+.sapm-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.8125rem;
+    color: var(--sapm-gray-600);
+}
+
+.sapm-status-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: var(--sapm-radius-full);
+    flex-shrink: 0;
+}
+
+.sapm-status-dot.enabled { background: var(--sapm-success); }
+.sapm-status-dot.disabled { background: var(--sapm-danger); }
+.sapm-status-dot.defer { background: var(--sapm-warning); }
+.sapm-status-dot.default { background: var(--sapm-gray-400); }
+.sapm-status-dot.inherited {
+    background: var(--sapm-primary);
+    box-shadow: 0 0 0 2px #fff, 0 0 0 3px var(--sapm-primary);
+}
+
+/* Quick Actions Bar */
+.sapm-quick-actions {
+    margin-bottom: 1.5rem;
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.sapm-filter-input {
+    padding: 0.625rem 1rem;
+    border: 1.5px solid var(--sapm-gray-300);
+    border-radius: var(--sapm-radius);
+    width: 280px;
+    font-size: 0.875rem;
+    background: #fff;
+    transition: all var(--sapm-transition);
+}
+
+.sapm-filter-input:focus {
+    border-color: var(--sapm-primary);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+    outline: none;
+}
+
+.sapm-filter-input::placeholder {
+    color: var(--sapm-gray-400);
+}
+
+/* Stats Card */
+.sapm-stats {
+    margin-top: 1.5rem;
+    padding: 1.25rem;
+    background: linear-gradient(135deg, var(--sapm-primary-light) 0%, #dbeafe 100%);
+    border: 1px solid #bfdbfe;
+    border-radius: var(--sapm-radius-lg);
+    box-shadow: var(--sapm-shadow-sm);
+}
+
+.sapm-stats h3 {
+    margin: 0 0 0.75rem 0;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--sapm-gray-800);
+}
+
+.sapm-stats p {
+    margin: 0;
+    font-size: 0.8125rem;
+    line-height: 1.75;
+    color: var(--sapm-gray-600);
+}
+
+.sapm-stats strong {
+    color: var(--sapm-gray-800);
+}
+
+/* Notice Cards */
+.sapm-notice {
+    padding: 1rem 1.25rem;
+    margin-bottom: 1rem;
+    border-radius: var(--sapm-radius);
+    border-left: 4px solid;
+    font-size: 0.8125rem;
+    line-height: 1.6;
+}
+
+.sapm-notice strong {
+    display: block;
+    margin-bottom: 0.25rem;
+}
+
+.sapm-notice.info {
+    background: linear-gradient(to right, var(--sapm-primary-light), #fff);
+    border-color: var(--sapm-primary);
+    color: var(--sapm-gray-700);
+}
+
+.sapm-notice.success {
+    background: linear-gradient(to right, var(--sapm-success-light), #fff);
+    border-color: var(--sapm-success);
+}
+
+.sapm-notice.warning {
+    background: linear-gradient(to right, var(--sapm-warning-light), #fff);
+    border-color: var(--sapm-warning);
+}
+
+/* Mode Switcher */
+.sapm-mode-switcher {
+    margin: 1.5rem 0;
+    padding: 1.25rem;
+    background: #fff;
+    border: 1px solid var(--sapm-gray-200);
+    border-radius: var(--sapm-radius-lg);
+    box-shadow: var(--sapm-shadow);
+}
+
+.sapm-mode-switcher strong {
+    margin-right: 1rem;
+    font-size: 0.875rem;
+    color: var(--sapm-gray-700);
+}
+
+.sapm-mode-switcher label {
+    margin-right: 1.25rem;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+}
+
+.sapm-mode-switcher label span {
+    color: var(--sapm-gray-500);
+    font-size: 0.75rem;
+}
+
+#sapm-auto-suggestions {
+    margin-top: 1rem;
+    padding: 1rem;
+    background: var(--sapm-gray-50);
+    border: 1px solid var(--sapm-gray-200);
+    border-radius: var(--sapm-radius);
+}
+
+/* Settings Rows */
+.sapm-setting-row {
+    margin-bottom: 1.5rem;
+}
+
+.sapm-setting-row h4 {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--sapm-gray-800);
+    margin: 0 0 0.75rem 0;
+}
+
+.sapm-setting-row h4 .dashicons {
+    color: var(--sapm-primary);
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+}
+
+/* Request Type Settings */
+.sapm-request-type-row {
+    padding: 1rem 1.25rem;
+}
+
+.sapm-request-type-row .sapm-screen-name {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.625rem;
+    background: transparent;
+    border-right: none;
+    width: 200px;
+    min-width: 200px;
+}
+
+.sapm-request-type-row .sapm-screen-name .dashicons {
+    color: var(--sapm-primary);
+    margin-top: 2px;
+}
+
+.sapm-request-type-settings {
+    flex: 1;
+}
+
+.sapm-mode-selector {
+    margin-bottom: 0.75rem;
+}
+
+.sapm-mode-selector label {
+    margin-right: 1rem;
+    font-size: 0.8125rem;
+}
+
+.sapm-rt-blacklist-config,
+.sapm-rt-whitelist-config {
+    margin-top: 0.75rem;
+    padding: 1rem;
+    border-radius: var(--sapm-radius);
+}
+
+.sapm-rt-blacklist-config {
+    background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+    border: 1px solid var(--sapm-danger-border);
+}
+
+.sapm-rt-whitelist-config {
+    background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+    border: 1px solid var(--sapm-success-border);
+}
+
+.sapm-rt-plugin-list {
+    margin-top: 0.5rem;
+}
+
+.sapm-rt-plugin-list label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    margin-right: 1rem;
+    margin-bottom: 0.5rem;
+    font-size: 0.8125rem;
+    cursor: pointer;
+}
+
+/* Spinning Animation */
+.dashicons.spin {
+    animation: sapm-spin 1s linear infinite;
+}
+
+@keyframes sapm-spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* =====================================================
+   Update Optimizer - Updater Endpoints Section
+   Modern Card Design
+   ===================================================== */
+
+/* Container for updater endpoints */
+.sapm-updater-endpoints {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    padding: 1.25rem;
+    background: var(--sapm-gray-50);
+    border-radius: var(--sapm-radius-lg);
+    border: 2px dashed var(--sapm-gray-300);
+}
+
+/* Individual endpoint tag */
+.sapm-updater-endpoint {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.625rem 1rem;
+    border-radius: var(--sapm-radius);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all var(--sapm-transition);
+    user-select: none;
+    border: 2px solid;
+    box-shadow: var(--sapm-shadow-sm);
+    position: relative;
+    overflow: hidden;
+}
+
+.sapm-updater-endpoint:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--sapm-shadow-md);
+}
+
+.sapm-updater-endpoint:active {
+    transform: translateY(0);
+}
+
+.sapm-updater-endpoint .dashicons {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+    margin-right: 0.5rem;
+    transition: transform var(--sapm-transition);
+}
+
+.sapm-updater-endpoint:hover .dashicons {
+    transform: scale(1.1);
+}
+
+.sapm-updater-endpoint .sapm-updater-name {
+    font-weight: 600;
+}
+
+/* State: Blocked (red) */
+.sapm-updater-endpoint.sapm-state-blocked {
+    background: linear-gradient(135deg, #fef2f2 0%, var(--sapm-danger-light) 100%);
+    border-color: var(--sapm-danger);
+    color: var(--sapm-danger);
+}
+
+.sapm-updater-endpoint.sapm-state-blocked:hover {
+    background: var(--sapm-danger-light);
+    box-shadow: 0 4px 12px rgba(220, 38, 38, 0.25);
+}
+
+.sapm-updater-endpoint.sapm-state-blocked .dashicons {
+    color: var(--sapm-danger);
+}
+
+/* State: Allowed (green) */
+.sapm-updater-endpoint.sapm-state-allowed {
+    background: linear-gradient(135deg, #f0fdf4 0%, var(--sapm-success-light) 100%);
+    border-color: var(--sapm-success);
+    color: var(--sapm-success);
+}
+
+.sapm-updater-endpoint.sapm-state-allowed:hover {
+    background: var(--sapm-success-light);
+    box-shadow: 0 4px 12px rgba(5, 150, 105, 0.25);
+}
+
+.sapm-updater-endpoint.sapm-state-allowed .dashicons {
+    color: var(--sapm-success);
+}
+
+/* Empty state message */
+.sapm-updater-empty {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    padding: 1.25rem;
+    background: linear-gradient(135deg, var(--sapm-gray-50) 0%, var(--sapm-gray-100) 100%);
+    border: 2px dashed var(--sapm-gray-300);
+    border-radius: var(--sapm-radius);
+    color: var(--sapm-gray-500);
+    font-style: italic;
+    font-size: 0.875rem;
+}
+
+.sapm-updater-empty .dashicons {
+    color: var(--sapm-primary);
+    font-size: 20px;
+}
+
+/* Custom endpoints textarea */
+.sapm-custom-endpoints {
+    margin-top: 1.5rem;
+    padding-top: 1.5rem;
+    border-top: 2px dashed var(--sapm-gray-200);
+}
+
+.sapm-custom-endpoints label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    color: var(--sapm-gray-700);
+    font-size: 0.8125rem;
+}
+
+.sapm-custom-endpoints textarea {
+    width: 100%;
+    max-width: 500px;
+    min-height: 80px;
+    padding: 0.875rem;
+    border: 2px solid var(--sapm-gray-300);
+    border-radius: var(--sapm-radius);
+    font-size: 0.75rem;
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    resize: vertical;
+    transition: all var(--sapm-transition);
+    background: #fff;
+}
+
+.sapm-custom-endpoints textarea:focus {
+    border-color: var(--sapm-primary);
+    background: #fff;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+    outline: none;
+}
+
+.sapm-custom-endpoints small {
+    display: block;
+    margin-top: 0.5rem;
+    color: var(--sapm-gray-500);
+    font-size: 0.75rem;
+}
+
+/* =====================================================
+   Per-Plugin Performance Measurement Section
+   ===================================================== */
+.sapm-rt-performance-section {
+    padding: 1.25rem;
+    background: linear-gradient(135deg, #ffffff 0%, var(--sapm-gray-50) 100%);
+    border-radius: var(--sapm-radius-lg);
+}
+
+.sapm-rt-performance-section h4 {
+    margin: 0 0 0.75rem 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: var(--sapm-gray-800);
+}
+
+.sapm-rt-performance-section h4 .dashicons {
+    color: var(--sapm-primary);
+}
+
+.sapm-rt-performance-section > p {
+    color: var(--sapm-gray-600);
+    margin-bottom: 1rem;
+}
+
+#sapm-rt-performance-container {
+    padding: 1rem;
+    background: #fff;
+    border: 1px solid var(--sapm-gray-200);
+    border-radius: var(--sapm-radius);
+}
+
+/* =====================================================
+   Update Optimizer Section
+   ===================================================== */
+.sapm-update-optimizer .sapm-group-content {
+    padding: 1.25rem;
+}
+
+.sapm-update-optimizer .sapm-setting-row {
+    margin-bottom: 1.25rem;
+}
+
+.sapm-update-optimizer .sapm-setting-row:last-child {
+    margin-bottom: 0;
+}
+
+/* Updater section container */
+.sapm-updater-section {
+    background: linear-gradient(135deg, #ffffff 0%, var(--sapm-gray-50) 100%);
+    border: 1px solid var(--sapm-gray-200);
+    border-radius: var(--sapm-radius-lg);
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    box-shadow: var(--sapm-shadow);
+    position: relative;
+    overflow: hidden;
+}
+
+.sapm-updater-section::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, var(--sapm-danger) 0%, #ef4444 50%, #f87171 100%);
+}
+
+.sapm-updater-section h4 {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0 0 1rem 0;
+    color: var(--sapm-gray-800);
+    font-size: 0.9375rem;
+    font-weight: 600;
+}
+
+.sapm-updater-section h4 .dashicons {
+    color: var(--sapm-danger);
+    font-size: 20px;
+    width: 20px;
+    height: 20px;
+}
+
+.sapm-updater-section > p {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    margin: 0 0 1.25rem 0;
+    padding: 0.875rem 1rem;
+    background: linear-gradient(135deg, var(--sapm-primary-light) 0%, #dbeafe 100%);
+    border-left: 3px solid var(--sapm-primary);
+    border-radius: var(--sapm-radius-sm);
+    font-size: 0.8125rem;
+    line-height: 1.6;
+    color: var(--sapm-gray-600);
+}
+
+.sapm-updater-section > p .dashicons {
+    flex-shrink: 0;
+    margin-top: 2px;
+    color: var(--sapm-primary);
+}
+
+/* =====================================================
+   Mobile-first media queries
+   ===================================================== */
+
+@media screen and (max-width: 1200px) {
+    .sapm-wrap {
+        max-width: 100%;
+    }
+    
+    .sapm-screen-plugins {
+        gap: 0.5rem;
+    }
+}
+
+@media screen and (max-width: 960px) {
+    .sapm-request-type-row {
+        flex-direction: column;
+    }
+    
+    .sapm-request-type-row .sapm-screen-name {
+        width: 100%;
+        min-width: 100%;
+        border-right: none;
+        border-bottom: 1px solid var(--sapm-gray-200);
+        padding-bottom: 0.75rem;
+        margin-bottom: 0.75rem;
+    }
+}
+
+@media screen and (max-width: 782px) {
+    .sapm-wrap {
+        padding: 1rem;
+    }
+    
+    .sapm-screen-row {
+        flex-direction: column;
+    }
+    
+    .sapm-screen-name {
+        width: 100%;
+        border-right: none;
+        border-bottom: 1px solid var(--sapm-gray-200);
+        padding-bottom: 0.75rem;
+    }
+    
+    .sapm-legend {
+        flex-direction: column;
+        gap: 0.5rem;
+        align-items: flex-start;
+    }
+    
+    .sapm-legend-item {
+        width: 100%;
+    }
+    
+    .sapm-filter-bar {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .sapm-filter-input {
+        width: 100%;
+    }
+    
+    .sapm-updater-endpoints {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    
+    .sapm-updater-endpoint {
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .sapm-custom-endpoints textarea {
+        max-width: 100%;
+    }
+    
+    .sapm-mode-switcher {
+        padding: 1rem;
+    }
+    
+    .sapm-mode-switcher label {
+        display: flex;
+        margin-bottom: 0.5rem;
+    }
+    
+    .sapm-group-header h3 {
+        font-size: 0.875rem;
+    }
+    
+    .sapm-plugin-tag {
+        padding: 0.5rem 0.75rem;
+        font-size: 0.75rem;
+    }
+    
+    .sapm-quick-actions button {
+        padding: 0.5rem 0.875rem;
+        font-size: 0.75rem;
+    }
+}
+
+@media screen and (max-width: 480px) {
+    .sapm-wrap {
+        padding: 0.75rem;
+    }
+    
+    .sapm-group-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.75rem;
+    }
+    
+    .sapm-current-screen {
+        flex-direction: column;
+        text-align: center;
+        padding: 1rem;
+    }
+    
+    .sapm-screen-group {
+        padding: 0.75rem;
+    }
+    
+    .sapm-screen-plugins {
+        padding: 0.75rem;
+    }
+}

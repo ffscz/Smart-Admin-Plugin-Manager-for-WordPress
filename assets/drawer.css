@@ -1,0 +1,542 @@
+/* =====================================================
+   SAPM Drawer
+   Version: 2.0
+   ===================================================== */
+.sapm-admin-drawer {
+    --sapm-primary: #2563eb;
+    --sapm-primary-dark: #1d4ed8;
+    --sapm-primary-light: #eff6ff;
+    --sapm-success: #059669;
+    --sapm-success-light: #d1fae5;
+    --sapm-warning: #d97706;
+    --sapm-warning-light: #fef3c7;
+    --sapm-danger: #dc2626;
+    --sapm-danger-light: #fee2e2;
+    --sapm-gray-50: #f9fafb;
+    --sapm-gray-100: #f3f4f6;
+    --sapm-gray-200: #e5e7eb;
+    --sapm-gray-300: #d1d5db;
+    --sapm-gray-400: #9ca3af;
+    --sapm-gray-500: #6b7280;
+    --sapm-gray-600: #4b5563;
+    --sapm-gray-700: #374151;
+    --sapm-gray-800: #1f2937;
+    --sapm-radius-sm: 4px;
+    --sapm-radius: 8px;
+    --sapm-radius-lg: 12px;
+    --sapm-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+    --sapm-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    --sapm-shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);
+    --sapm-transition: 0.2s ease;
+}
+
+.sapm-admin-drawer {
+    position: fixed;
+    right: 0;
+    top: 32px;
+    z-index: 9990;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+}
+
+/* Toggle Button */
+.sapm-admin-drawer .sapm-drawer-toggle {
+    position: absolute;
+    left: -110px;
+    top: 140px;
+    transform: rotate(-90deg);
+    transform-origin: left top;
+    background: linear-gradient(135deg, var(--sapm-primary) 0%, var(--sapm-primary-dark) 100%);
+    color: #fff;
+    border: none;
+    padding: 0.625rem 1rem;
+    border-radius: var(--sapm-radius) var(--sapm-radius) 0 0;
+    cursor: pointer;
+    box-shadow: 0 -2px 12px rgba(37, 99, 235, 0.3);
+    font-weight: 600;
+    font-size: 0.8125rem;
+    letter-spacing: 0.02em;
+    transition: all var(--sapm-transition);
+}
+
+.sapm-admin-drawer .sapm-drawer-toggle:hover {
+    background: linear-gradient(135deg, var(--sapm-primary-dark) 0%, #1e40af 100%);
+    box-shadow: 0 -2px 16px rgba(37, 99, 235, 0.4);
+}
+
+/* Badge Label */
+.sapm-drawer-toggle-label {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.125rem 0.625rem;
+    background: var(--sapm-primary-dark);
+    color: #fff;
+    border-radius: 999px;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    line-height: 1.4;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+
+#wpadminbar .sapm-drawer-toggle-label {
+    background: var(--sapm-primary-dark) !important;
+    color: #fff !important;
+    padding: 0.0625rem 0.375rem;
+    font-size: 0.625rem;
+    border-radius: 999px;
+    margin-left: 0;
+}
+
+/* Drawer Panel */
+.sapm-admin-drawer .sapm-drawer-panel {
+    width: 480px;
+    max-height: calc(100vh - 40px);
+    background: #fff;
+    border-left: 1px solid var(--sapm-gray-200);
+    box-shadow: var(--sapm-shadow-lg), -4px 0 24px rgba(0, 0, 0, 0.1);
+    transform: translateX(100%);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    overflow: auto;
+    padding: 1.25rem;
+}
+
+.sapm-admin-drawer.is-open .sapm-drawer-panel {
+    transform: translateX(0);
+}
+
+/* Header */
+.sapm-drawer-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--sapm-gray-200);
+}
+
+.sapm-drawer-title {
+    font-size: 1rem;
+    font-weight: 700;
+    margin: 0;
+    color: var(--sapm-gray-800);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.sapm-drawer-title::before {
+    content: '';
+    width: 4px;
+    height: 20px;
+    background: linear-gradient(180deg, var(--sapm-primary) 0%, var(--sapm-primary-dark) 100%);
+    border-radius: 2px;
+}
+
+.sapm-drawer-close {
+    background: var(--sapm-gray-100);
+    border: 1px solid var(--sapm-gray-200);
+    border-radius: var(--sapm-radius-sm);
+    font-size: 1.25rem;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0.375rem 0.5rem;
+    color: var(--sapm-gray-500);
+    transition: all var(--sapm-transition);
+}
+
+.sapm-drawer-close:hover {
+    background: var(--sapm-danger-light);
+    border-color: var(--sapm-danger);
+    color: var(--sapm-danger);
+}
+
+/* Context Info */
+.sapm-drawer-context {
+    font-size: 0.75rem;
+    color: var(--sapm-gray-500);
+    margin-bottom: 0.75rem;
+    padding: 0.5rem 0.75rem;
+    background: var(--sapm-gray-50);
+    border-radius: var(--sapm-radius-sm);
+    border-left: 3px solid var(--sapm-primary);
+}
+
+/* Notices */
+.sapm-drawer-notice {
+    font-size: 0.75rem;
+    margin-bottom: 0.875rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: var(--sapm-radius-sm);
+    border-left: 3px solid;
+    font-weight: 500;
+}
+
+.sapm-drawer-notice:empty {
+    display: none;
+}
+
+.sapm-drawer-notice.is-info {
+    color: var(--sapm-primary-dark);
+    background: var(--sapm-primary-light);
+    border-color: var(--sapm-primary);
+}
+
+.sapm-drawer-notice.is-success {
+    color: var(--sapm-success);
+    background: var(--sapm-success-light);
+    border-color: var(--sapm-success);
+}
+
+.sapm-drawer-notice.is-error {
+    color: var(--sapm-danger);
+    background: var(--sapm-danger-light);
+    border-color: var(--sapm-danger);
+}
+
+/* Sections */
+.sapm-drawer-section {
+    margin-bottom: 1.25rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--sapm-gray-100);
+}
+
+.sapm-drawer-section:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+}
+
+.sapm-drawer-section-title {
+    font-weight: 700;
+    font-size: 0.8125rem;
+    margin-bottom: 0.625rem;
+    color: var(--sapm-gray-700);
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+}
+
+.sapm-drawer-section-title::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    background: var(--sapm-primary);
+    border-radius: 50%;
+}
+
+/* Meta Info */
+.sapm-drawer-meta {
+    font-size: 0.75rem;
+    color: var(--sapm-gray-500);
+    margin-bottom: 0.625rem;
+}
+
+.sapm-drawer-hint {
+    margin-top: 0.375rem;
+    color: var(--sapm-warning);
+    font-weight: 500;
+}
+
+/* Plugin List */
+.sapm-drawer-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.sapm-drawer-row {
+    border: 1px solid var(--sapm-gray-200);
+    border-radius: var(--sapm-radius);
+    padding: 0.625rem 0.875rem;
+    background: linear-gradient(135deg, #fff 0%, var(--sapm-gray-50) 100%);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.75rem;
+    transition: all var(--sapm-transition);
+}
+
+.sapm-drawer-row:hover {
+    border-color: var(--sapm-primary);
+    box-shadow: var(--sapm-shadow-sm);
+    transform: translateX(-2px);
+}
+
+.sapm-drawer-row-main {
+    min-width: 0;
+    flex: 1;
+}
+
+.sapm-drawer-plugin {
+    font-weight: 600;
+    font-size: 0.8125rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--sapm-gray-800);
+}
+
+.sapm-drawer-time,
+.sapm-drawer-rule {
+    font-size: 0.75rem;
+    color: var(--sapm-gray-500);
+    margin-top: 0.125rem;
+}
+
+.sapm-drawer-rule.is-disabled {
+    color: var(--sapm-danger);
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.sapm-drawer-rule.is-disabled::before {
+    content: '●';
+    font-size: 0.5rem;
+}
+
+.sapm-drawer-rule.is-defer {
+    color: var(--sapm-warning);
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.sapm-drawer-rule.is-defer::before {
+    content: '●';
+    font-size: 0.5rem;
+}
+
+/* Actions */
+.sapm-drawer-actions {
+    display: flex;
+    gap: 0.375rem;
+    flex-wrap: wrap;
+}
+
+.sapm-drawer-actions button {
+    padding: 0.375rem 0.625rem;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    border-radius: var(--sapm-radius-sm);
+    border: 1px solid var(--sapm-gray-300);
+    background: #fff;
+    color: var(--sapm-gray-700);
+    cursor: pointer;
+    transition: all var(--sapm-transition);
+}
+
+.sapm-drawer-actions button:hover {
+    background: var(--sapm-primary);
+    border-color: var(--sapm-primary);
+    color: #fff;
+}
+
+/* Empty State */
+.sapm-drawer-empty {
+    font-size: 0.75rem;
+    color: var(--sapm-gray-400);
+    text-align: center;
+    padding: 1.5rem 1rem;
+    background: var(--sapm-gray-50);
+    border: 2px dashed var(--sapm-gray-200);
+    border-radius: var(--sapm-radius);
+    font-style: italic;
+}
+
+.sapm-drawer-empty:empty {
+    display: none;
+}
+
+/* Add Plugin Form */
+.sapm-drawer-add-title {
+    font-size: 0.75rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    color: var(--sapm-gray-600);
+}
+
+.sapm-drawer-add-row {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.sapm-drawer-select {
+    min-width: 160px;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--sapm-gray-300);
+    border-radius: var(--sapm-radius-sm);
+    font-size: 0.8125rem;
+    background: #fff;
+    transition: all var(--sapm-transition);
+}
+
+.sapm-drawer-select:focus {
+    border-color: var(--sapm-primary);
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+/* Footer */
+.sapm-drawer-footer {
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--sapm-gray-200);
+    text-align: right;
+}
+
+.sapm-drawer-settings {
+    font-size: 0.75rem;
+    color: var(--sapm-primary);
+    text-decoration: none;
+    font-weight: 500;
+    transition: all var(--sapm-transition);
+}
+
+.sapm-drawer-settings:hover {
+    color: var(--sapm-primary-dark);
+    text-decoration: underline;
+}
+
+/* =====================================================
+   Dark Mode Support
+   ===================================================== */
+
+@media (prefers-color-scheme: dark) {
+    .sapm-admin-drawer .sapm-drawer-panel {
+        background: #1f2937;
+        border-left-color: #374151;
+    }
+    
+    .sapm-drawer-header {
+        border-bottom-color: #374151;
+    }
+    
+    .sapm-drawer-title {
+        color: #f9fafb;
+    }
+    
+    .sapm-drawer-close {
+        background: #374151;
+        border-color: #4b5563;
+        color: #9ca3af;
+    }
+    
+    .sapm-drawer-close:hover {
+        background: #7f1d1d;
+        color: #fca5a5;
+    }
+    
+    .sapm-drawer-context {
+        background: #374151;
+        color: #d1d5db;
+    }
+    
+    .sapm-drawer-section {
+        border-bottom-color: #374151;
+    }
+    
+    .sapm-drawer-section-title {
+        color: #f3f4f6;
+    }
+    
+    .sapm-drawer-row {
+        background: linear-gradient(135deg, #374151 0%, #1f2937 100%);
+        border-color: #4b5563;
+    }
+    
+    .sapm-drawer-row:hover {
+        border-color: #60a5fa;
+    }
+    
+    .sapm-drawer-plugin {
+        color: #f9fafb;
+    }
+    
+    .sapm-drawer-context,
+    .sapm-drawer-time,
+    .sapm-drawer-rule,
+    .sapm-drawer-meta,
+    .sapm-drawer-empty {
+        color: #9ca3af;
+    }
+    
+    .sapm-drawer-rule.is-disabled {
+        color: #fca5a5;
+    }
+    
+    .sapm-drawer-rule.is-defer {
+        color: #fcd34d;
+    }
+    
+    .sapm-drawer-select {
+        background: #374151;
+        border-color: #4b5563;
+        color: #f9fafb;
+    }
+    
+    .sapm-drawer-empty {
+        background: #374151;
+        border-color: #4b5563;
+    }
+    
+    .sapm-drawer-actions button {
+        background: #374151;
+        border-color: #4b5563;
+        color: #d1d5db;
+    }
+    
+    .sapm-drawer-actions button:hover {
+        background: #2563eb;
+        border-color: #2563eb;
+        color: #fff;
+    }
+}
+
+/* =====================================================
+   Responsive Adjustments
+   ===================================================== */
+
+@media (max-width: 782px) {
+    .sapm-admin-drawer {
+        top: 46px;
+    }
+    
+    .sapm-admin-drawer .sapm-drawer-panel {
+        width: 100vw;
+        max-height: calc(100vh - 46px);
+        padding: 1rem;
+    }
+    
+    .sapm-admin-drawer .sapm-drawer-toggle {
+        left: -92px;
+        font-size: 0.75rem;
+        padding: 0.5rem 0.75rem;
+    }
+    
+    .sapm-drawer-row {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
+    }
+    
+    .sapm-drawer-actions {
+        width: 100%;
+        justify-content: flex-end;
+    }
+}
+
+@media (max-width: 480px) {
+    .sapm-drawer-add-row {
+        flex-direction: column;
+    }
+    
+    .sapm-drawer-select {
+        width: 100%;
+        min-width: auto;
+    }
+}
