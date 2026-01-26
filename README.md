@@ -1,4 +1,4 @@
-# Smart Admin Plugin Manager
+# Smart Admin Plugin Manager for WordPress
 
 Intelligent WordPress plugin loading management for WordPress admin interface - per-screen control with automatic optimization suggestions.
 
