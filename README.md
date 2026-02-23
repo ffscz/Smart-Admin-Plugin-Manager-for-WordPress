@@ -5,7 +5,7 @@ Intelligent WordPress plugin loading management for WordPress admin interface - 
 [![WordPress Plugin Version](https://img.shields.io/badge/WordPress-6.0%2B-blue.svg)](https://wordpress.org/)
 [![PHP Version](https://img.shields.io/badge/PHP-7.4%2B-purple.svg)](https://www.php.net/)
 [![License](https://img.shields.io/badge/License-GPLv2-green.svg)](https://www.gnu.org/licenses/gpl-2.0.html)
-[![Status](https://img.shields.io/badge/Status-Beta-orange.svg)](https://github.com/ffscz/Smart-Admin-Plugin-Manager-for-WordPress)
+[![Status](https://img.shields.io/badge/Status-Stable-brightgreen.svg)](https://github.com/ffscz/Smart-Admin-Plugin-Manager-for-WordPress)
 
 ## Description
 
