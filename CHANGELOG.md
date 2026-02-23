@@ -11,6 +11,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [![License](https://img.shields.io/badge/License-GPLv2-green.svg)](https://www.gnu.org/licenses/gpl-2.0.html)
 [![Status](https://img.shields.io/badge/Status-Stable-brightgreen.svg)](https://github.com/ffscz/Smart-Admin-Plugin-Manager-for-WordPress)
 
+## [1.3.1] - 2026-02-23
+
+### Fixed
+- **Updater release source mapping** (`includes/class-sapm-github-updater.php`)
+  - Corrected default GitHub repository identifier to `ffscz/Smart-Admin-Plugin-Manager-for-WordPress`
+  - Restores expected metadata discovery from `releases/latest` for default installations
+
+### Security
+- Retained strict update integrity gate with no relaxations:
+  - SHA256 package verification
+  - HTTPS-only trusted host allowlist
+  - Exact package URL pinning during upgrade
+
+### Breaking Changes
+- None. Backward-compatible hotfix release.
+
 ## [1.3.0] - 2026-02-23
 
 ### Added
@@ -165,12 +181,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 | SAPM Version | WordPress | PHP     | Tested With |
 |--------------|-----------|---------|-------------|
+| 1.3.1        | 6.0+      | 7.4+    | 6.8.3       |
 | 1.3.0        | 6.0+      | 7.4+    | 6.8.3       |
 | 1.2.0        | 6.0+      | 7.4+    | 6.8.3       |
 | 1.1.0        | 6.0+      | 7.4+    | 6.4.2       |
 | 1.0.0        | 6.0+      | 7.4+    | 6.2.0       |
 
 ## Migration Guide
+
+### From 1.3.0 to 1.3.1
+
+**Automatic Migration:**
+- No schema or settings migration required
+- Existing rules/options remain fully compatible
+- Update path remains protected by existing integrity checks
+
+**Manual Steps (GitHub Release Delivery):**
+1. Publish `smart-admin-plugin-manager.zip` and matching `smart-admin-plugin-manager.sha256`
+2. Keep release tag in semver form (`v1.3.1`) and release as non-draft/non-prerelease
+
+**Breaking Changes:**
+- None - hotfix only
 
 ### From 1.2.0 to 1.3.0
 

@@ -19,7 +19,7 @@ class SAPM_GitHub_Updater {
 
     private const PLUGIN_FILE = 'smart-admin-plugin-manager/smart-admin-plugin-manager.php';
     private const PLUGIN_SLUG = 'smart-admin-plugin-manager';
-    private const DEFAULT_REPO = 'ffscz/smart-admin-plugin-manager';
+    private const DEFAULT_REPO = 'ffscz/Smart-Admin-Plugin-Manager-for-WordPress';
 
     private const UPDATE_TRANSIENT_KEY = 'sapm_github_updater_release_meta';
     private const LAST_GOOD_OPTION_KEY = 'sapm_github_updater_last_good_meta';

@@ -4,7 +4,7 @@ Tags: performance, admin, optimization, plugin manager, speed, loading, admin pe
 Requires at least: 6.0
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.3.0
+Stable tag: 1.3.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -140,7 +140,12 @@ All strategies preserve update badge accuracy and allow manual checks anytime.
 
 == Changelog ==
 
-= 1.3.0 (Current) =
+= 1.3.1 (Current) =
+* FIXED: GitHub updater default repository mapping corrected to `ffscz/Smart-Admin-Plugin-Manager-for-WordPress`
+* IMPROVED: Release discovery reliability for `/releases/latest` metadata lookup
+* SECURITY: Preserved strict integrity gate (SHA256 + host allowlist + package URL pinning)
+
+= 1.3.0 =
 * NEW: Secure GitHub Release updater with native WordPress update integration
 * NEW: SHA256 package integrity validation before install (download gate)
 * NEW: Strict trusted-host allowlist and package URL validation for updater
@@ -181,6 +186,9 @@ All strategies preserve update badge accuracy and allow manual checks anytime.
 * WordPress core screen support
 
 == Upgrade Notice ==
+
+= 1.3.1 =
+Hotfix release: corrects GitHub repository mapping used by updater metadata fetch. Recommended for all 1.3.0 installations.
 
 = 1.3.0 =
 Security-focused update release with GitHub updater + package integrity verification. For GitHub delivery, publish both ZIP and matching `.sha256` asset in release.
