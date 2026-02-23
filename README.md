@@ -14,8 +14,11 @@ Smart Admin Plugin Manager (SAPM) is an advanced WordPress plugin that optimizes
 The plugin operates at the core WordPress level using MU-plugins mechanism, intercepting the plugin loading process before WordPress initialization completes. This allows for dramatic performance improvements by preventing heavy plugins from loading on screens where they are not needed.
 
 **Current Version:** 1.3.0  
-**Status:** Active Development (Beta)  
+**Status:** Active Development  
 **Minimum Requirements:** WordPress 6.0+, PHP 7.4+
+
+<img width="2012" height="1219" alt="Smart Admin Plugin Manager - Intelligent WordPress plugin loading management for WordPress admin interface" src="https://github.com/user-attachments/assets/d42203a7-4dcf-470a-896a-152a3291df90" />
+
 
 ## Key Features
 
