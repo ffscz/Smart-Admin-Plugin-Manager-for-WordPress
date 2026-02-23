@@ -5,7 +5,7 @@ if (!defined('ABSPATH')) {
 }
 
 if (!defined('SAPM_VERSION')) {
-    define('SAPM_VERSION', '1.2.0');
+    define('SAPM_VERSION', '1.3.0');
 }
 if (!defined('SAPM_OPTION_KEY')) {
     define('SAPM_OPTION_KEY', 'sapm_plugin_rules');
@@ -86,6 +86,9 @@ class SAPM_Core {
 
     /** @var bool */
     private $perf_snapshot_saved = false;
+
+    /** @var int|null Frozen query_total value for accurate frontend bar display */
+    private $perf_query_total_frozen = null;
 
     // ========================================
     // Request Type Performance Sampling
@@ -171,8 +174,23 @@ class SAPM_Core {
      * Enable performance tracking (admin only)
      */
     private function maybe_enable_perf_tracking(): void {
-        if ($this->request_type !== 'admin') {
+        if (!in_array($this->request_type, ['admin', 'frontend'], true)) {
             return;
+        }
+
+        if ($this->request_type === 'frontend') {
+            // MU bootstrap can run before pluggable auth APIs are available.
+            // Use logged-in cookie as early hint, then refine when possible.
+            $frontend_default = $this->has_logged_in_cookie_hint();
+
+            if (function_exists('is_user_logged_in') && function_exists('current_user_can')) {
+                $frontend_default = $frontend_default || (is_user_logged_in() && current_user_can('manage_options'));
+            }
+
+            $frontend_enabled = apply_filters('sapm_perf_frontend_enabled', $frontend_default);
+            if (!$frontend_enabled) {
+                return;
+            }
         }
 
         $enabled = apply_filters('sapm_perf_enabled', true);
@@ -188,6 +206,32 @@ class SAPM_Core {
         add_filter('query', [$this, 'track_db_query'], 0);
         add_action('plugin_loaded', [$this, 'track_plugin_loaded'], 0, 1);
         add_action('plugins_loaded', [$this, 'store_perf_snapshot'], PHP_INT_MAX);
+    }
+
+    /**
+     * Early hint whether request likely belongs to a logged-in user.
+     * Works even before pluggable auth APIs are available.
+     */
+    private function has_logged_in_cookie_hint(): bool {
+        if (defined('LOGGED_IN_COOKIE') && isset($_COOKIE[LOGGED_IN_COOKIE]) && $_COOKIE[LOGGED_IN_COOKIE] !== '') {
+            return true;
+        }
+
+        if (!is_array($_COOKIE) || empty($_COOKIE)) {
+            return false;
+        }
+
+        foreach ($_COOKIE as $cookie_name => $cookie_value) {
+            if (!is_string($cookie_name) || $cookie_value === '') {
+                continue;
+            }
+
+            if (strpos($cookie_name, 'wordpress_logged_in_') === 0) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -292,24 +336,10 @@ class SAPM_Core {
             return;
         }
 
-        if (empty($this->perf_times)) {
+        $payload = $this->build_current_perf_payload();
+        if ($payload === null) {
             return;
         }
-
-        $context = $this->build_perf_context_label();
-
-        $payload = [
-            'captured_at' => time(),
-            'request_type' => defined('REQUEST_ADMIN') ? REQUEST_ADMIN : $this->request_type,
-            'context' => $context,
-            'uri' => $_SERVER['REQUEST_URI'] ?? '',
-            'plugins' => $this->perf_times,
-            'total_ms' => round(array_sum($this->perf_times) * 1000, 3),
-            'query_counts' => $this->perf_query_counts,
-            'query_total' => $this->perf_query_total,
-            'loaded_plugins' => array_values(array_unique($this->perf_loaded)),
-            'deferred_loaded' => array_values(array_unique($this->perf_deferred_loaded)),
-        ];
 
         set_transient('sapm_perf_last', $payload, 10 * MINUTE_IN_SECONDS);
 
@@ -333,12 +363,61 @@ class SAPM_Core {
 
         set_transient('sapm_perf_log', $log, 10 * MINUTE_IN_SECONDS);
 
-        // Store admin screen sampling data to database for Auto mode suggestions
-        // Use proper screen ID (not build_perf_context_label format) for consistent mapping
-        $proper_screen_id = $this->get_current_screen_early();
-        $this->store_admin_screen_sampling($proper_screen_id, $payload);
+        // Store admin screen sampling data only for admin requests.
+        // Frontend snapshots are used for drawer UI only.
+        if ($this->request_type === 'admin') {
+            $proper_screen_id = $this->get_current_screen_early();
+            $this->store_admin_screen_sampling($proper_screen_id, $payload);
+        }
 
         $this->perf_snapshot_saved = true;
+    }
+
+    /**
+     * Freeze the query_total counter at its current value.
+     * Called by the frontend bar renderer before doing any overhead queries,
+     * so the displayed query count reflects the page, not SAPM rendering.
+     */
+    public function freeze_query_total(): void {
+        if ($this->perf_enabled && $this->perf_query_total_frozen === null) {
+            $this->perf_query_total_frozen = $this->perf_query_total;
+        }
+    }
+
+    /**
+     * Get runtime performance payload for the current request.
+     * Used by frontend drawer to show exact per-page values without waiting for transient fallback.
+     */
+    public function get_runtime_perf_snapshot(): ?array {
+        if (!$this->perf_enabled) {
+            return null;
+        }
+
+        return $this->build_current_perf_payload();
+    }
+
+    /**
+     * Build current request performance payload.
+     */
+    private function build_current_perf_payload(): ?array {
+        if (empty($this->perf_times)) {
+            return null;
+        }
+
+        $context = $this->build_perf_context_label();
+
+        return [
+            'captured_at' => time(),
+            'request_type' => defined('REQUEST_ADMIN') ? REQUEST_ADMIN : $this->request_type,
+            'context' => $context,
+            'uri' => $_SERVER['REQUEST_URI'] ?? '',
+            'plugins' => $this->perf_times,
+            'total_ms' => round(array_sum($this->perf_times) * 1000, 3),
+            'query_counts' => $this->perf_query_counts,
+            'query_total' => $this->perf_query_total_frozen ?? $this->perf_query_total,
+            'loaded_plugins' => array_values(array_unique($this->perf_loaded)),
+            'deferred_loaded' => array_values(array_unique($this->perf_deferred_loaded)),
+        ];
     }
 
     /**
@@ -609,6 +688,12 @@ class SAPM_Core {
     }
 
     private function build_perf_context_label(): string {
+        if ($this->request_type === 'frontend') {
+            $uri_path = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH);
+            $uri_path = is_string($uri_path) && $uri_path !== '' ? $uri_path : '/';
+            return 'frontend:' . $uri_path;
+        }
+
         $context = 'admin';
 
         if (!empty($GLOBALS['pagenow'])) {
@@ -1177,6 +1262,18 @@ class SAPM_Core {
      * Filter plugins for non-admin requests (AJAX/REST/Cron/CLI/Frontend)
      */
     private function filter_non_admin_plugins(array $plugins): array {
+        // Frontend requests: delegate to SAPM_Frontend if available
+        if ($this->request_type === 'frontend' && class_exists('SAPM_Frontend')) {
+            $frontend = SAPM_Frontend::init($this);
+            $filtered = $frontend->filter_frontend_plugins($plugins);
+            // If frontend returned a different list, use it
+            if ($filtered !== $plugins) {
+                $this->safelisted = $filtered;
+                return $filtered;
+            }
+            // Otherwise fall through to standard request type rules
+        }
+
         $type_rules = $this->request_type_rules[$this->request_type] ?? [];
         $mode = $type_rules['_mode'] ?? 'passthrough';
 
@@ -1634,11 +1731,6 @@ class SAPM_Core {
         if (!empty($blocked_plugins) && class_exists('SAPM_Dependencies')) {
             $deps = SAPM_Dependencies::init();
             $cascade = $deps->get_cascade_blocked($blocked_plugins);
-            
-            // DEBUG: Log cascade blocking info
-            error_log('SAPM Cascade Debug: blocked_plugins = ' . print_r($blocked_plugins, true));
-            error_log('SAPM Cascade Debug: cascade = ' . print_r($cascade, true));
-            error_log('SAPM Cascade Debug: dependency_map count = ' . count($deps->get_dependency_map()));
             
             if (!empty($cascade)) {
                 $new_filtered = [];

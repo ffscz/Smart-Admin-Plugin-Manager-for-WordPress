@@ -28,6 +28,40 @@ if (!defined('WP_UNINSTALL_PLUGIN')) {
 }
 
 /**
+ * Build a sanitized SAPM table name from a blog prefix.
+ */
+function sapm_uninstall_get_table_name(string $prefix): string {
+    $clean_prefix = preg_replace('/[^A-Za-z0-9_]/', '', $prefix);
+    if (!is_string($clean_prefix) || $clean_prefix === '') {
+        $clean_prefix = 'wp_';
+    }
+
+    return $clean_prefix . 'sapm_sampling_data';
+}
+
+/**
+ * Delete SAPM transients from a specific options table.
+ */
+function sapm_uninstall_delete_transients_from_options_table(string $options_table): void {
+    global $wpdb;
+
+    $clean_options_table = preg_replace('/[^A-Za-z0-9_]/', '', $options_table);
+    if (!is_string($clean_options_table) || $clean_options_table === '') {
+        return;
+    }
+
+    $sql = $wpdb->prepare(
+        "DELETE FROM `{$clean_options_table}` WHERE option_name LIKE %s OR option_name LIKE %s",
+        '_transient_sapm_%',
+        '_transient_timeout_sapm_%'
+    );
+
+    if (is_string($sql)) {
+        $wpdb->query($sql);
+    }
+}
+
+/**
  * Delete plugin database table
  * 
  * Drops the custom database table created by the plugin.
@@ -38,7 +72,7 @@ if (!defined('WP_UNINSTALL_PLUGIN')) {
 function sapm_uninstall_drop_tables() {
     global $wpdb;
     
-    $table_name = $wpdb->prefix . 'sapm_sampling_data';
+    $table_name = sapm_uninstall_get_table_name($wpdb->prefix);
     
     // Drop the table if it exists (suppresses errors if doesn't exist)
     $wpdb->query("DROP TABLE IF EXISTS `{$table_name}`");
@@ -52,7 +86,7 @@ function sapm_uninstall_drop_tables() {
             switch_to_blog($blog_id);
             
             // Each blog has its own table with its prefix
-            $table_name = $wpdb->prefix . 'sapm_sampling_data';
+            $table_name = sapm_uninstall_get_table_name($wpdb->prefix);
             $wpdb->query("DROP TABLE IF EXISTS `{$table_name}`");
         }
         
@@ -122,11 +156,7 @@ function sapm_uninstall_delete_transients() {
     
     // Delete transients with 'sapm_' prefix from current site
     // Note: This includes both _transient_sapm_* and _transient_timeout_sapm_*
-    $wpdb->query(
-        "DELETE FROM {$wpdb->options} 
-         WHERE option_name LIKE '_transient_sapm_%' 
-         OR option_name LIKE '_transient_timeout_sapm_%'"
-    );
+    sapm_uninstall_delete_transients_from_options_table($wpdb->options);
     
     // For multisite: delete from all subsites
     if (is_multisite()) {
@@ -137,11 +167,7 @@ function sapm_uninstall_delete_transients() {
             switch_to_blog($blog_id);
             
             // Delete transients from this subsite
-            $wpdb->query(
-                "DELETE FROM {$wpdb->options} 
-                 WHERE option_name LIKE '_transient_sapm_%' 
-                 OR option_name LIKE '_transient_timeout_sapm_%'"
-            );
+            sapm_uninstall_delete_transients_from_options_table($wpdb->options);
         }
         
         // Restore original blog context
@@ -243,7 +269,6 @@ function sapm_uninstall_clear_cron() {
  * 3. Transients - removes cached data
  * 4. MU-plugin loader - deletes external file
  * 5. Cron jobs - unschedules all tasks
- * 6. Object cache - flushes any remaining cache
  * 
  * Note: WordPress automatically deletes plugin files from wp-content/plugins/.
  * We only need to clean up database and external files (like MU-plugin).
@@ -263,12 +288,6 @@ function sapm_uninstall() {
     
     // 5. Clear scheduled cron jobs
     sapm_uninstall_clear_cron();
-    
-    // 6. Clear any remaining object cache
-    // This ensures no stale data remains in Redis/Memcached
-    if (function_exists('wp_cache_flush')) {
-        wp_cache_flush();
-    }
 }
 
 // ============================================================================

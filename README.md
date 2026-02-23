@@ -1,6 +1,11 @@
-# Smart Admin Plugin Manager for WordPress
+# Smart Admin Plugin Manager
 
 Intelligent WordPress plugin loading management for WordPress admin interface - per-screen control with automatic optimization suggestions.
+
+[![WordPress Plugin Version](https://img.shields.io/badge/WordPress-6.0%2B-blue.svg)](https://wordpress.org/)
+[![PHP Version](https://img.shields.io/badge/PHP-7.4%2B-purple.svg)](https://www.php.net/)
+[![License](https://img.shields.io/badge/License-GPLv2-green.svg)](https://www.gnu.org/licenses/gpl-2.0.html)
+[![Status](https://img.shields.io/badge/Status-Beta-orange.svg)](https://github.com/ffscz/Smart-Admin-Plugin-Manager-for-WordPress)
 
 ## Description
 
@@ -8,14 +13,9 @@ Smart Admin Plugin Manager (SAPM) is an advanced WordPress plugin that optimizes
 
 The plugin operates at the core WordPress level using MU-plugins mechanism, intercepting the plugin loading process before WordPress initialization completes. This allows for dramatic performance improvements by preventing heavy plugins from loading on screens where they are not needed.
 
-**Current Version:** 1.2.0  
+**Current Version:** 1.3.0  
 **Status:** Active Development (Beta)  
 **Minimum Requirements:** WordPress 6.0+, PHP 7.4+
-
-⚡⚡⚡The authors are not responsible for data loss or functionality issues caused by misconfiguration.⚡⚡⚡
-
-<img width="1922" height="1084" alt="sapm_1" src="https://github.com/user-attachments/assets/3e079041-3102-4bf7-8f51-c116dd8ff311" />
-
 
 ## Key Features
 
@@ -47,7 +47,7 @@ The plugin operates at the core WordPress level using MU-plugins mechanism, inte
 
 ### Advanced Features
 
-#### 1. Automatic Mode with Auto-Suggested Rules
+#### 1. Automatic Mode with AI-Suggested Rules
 - **Sampling-Based Analysis:** Monitors plugin performance across admin screens
 - **Confidence Scoring:** Each suggestion includes confidence level (0-100%)
 - **Contextual Intelligence:** Recognizes plugin purposes and screen relevance
@@ -417,7 +417,7 @@ Plugin Updater Blocking: All known updaters blocked except security plugins
 
 ## Development Status
 
-**Current Version:** 1.2.0 (Beta)
+**Current Version:** 1.3.0 (Beta)
 
 ### Status: Active Development
 
@@ -437,7 +437,7 @@ This plugin is actively developed and maintained. While stable for production us
 
 ### Roadmap
 
-**Version 1.3.0 (Planned):**
+**Version 1.4.0 (Planned):**
 - Multi-language admin interface (Czech, German)
 - Import/Export rules functionality
 - Advanced scheduling (time-based rules)
@@ -451,8 +451,15 @@ This plugin is actively developed and maintained. While stable for production us
 
 ### Changelog
 
-**1.2.0 (Current):**
-- Added Automatic Mode with auto suggestions
+**1.3.0 (Current):**
+- Added secure GitHub release updater with SHA256 integrity validation
+- Added strict package host allowlist and ZIP structure verification during update
+- Refactored frontend drawer integration to shared CSS system
+- Improved frontend override UX and reset flow in admin bar drawer
+- Removed legacy `assets/frontend-bar.css` in favor of `assets/drawer.css`
+
+**1.2.0:**
+- Added Automatic Mode with AI suggestions
 - Database storage for sampling data
 - Update Optimizer strategies
 - Dependency cascade blocking
@@ -635,11 +642,4 @@ This plugin modifies core WordPress plugin loading behavior. While extensively t
 - Monitor admin functionality after applying rules
 - Keep plugin updated to latest version
 
-⚡⚡⚡The authors are not responsible for data loss or functionality issues caused by misconfiguration.⚡⚡⚡
-
-<img width="1922" height="1084" alt="sapm_1" src="https://github.com/user-attachments/assets/3e079041-3102-4bf7-8f51-c116dd8ff311" />
-<img width="1561" height="1118" alt="sapm_2" src="https://github.com/user-attachments/assets/89f2826c-1327-4839-beb2-a847da86cb44" />
-<img width="1544" height="1106" alt="sapm_3" src="https://github.com/user-attachments/assets/81eece00-9d78-4be0-830f-a1ef74140ab8" />
-<img width="1498" height="1097" alt="sapm_4" src="https://github.com/user-attachments/assets/7caa3852-794f-43df-a226-debb4f865e93" />
-<img width="1496" height="1068" alt="sapm_5" src="https://github.com/user-attachments/assets/1be466c1-342f-4f24-9564-1e52ee177dec" />
-
+The authors are not responsible for data loss or functionality issues caused by misconfiguration.

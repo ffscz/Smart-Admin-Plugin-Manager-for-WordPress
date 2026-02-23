@@ -4,11 +4,13 @@ Tags: performance, admin, optimization, plugin manager, speed, loading, admin pe
 Requires at least: 6.0
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.2.0
+Stable tag: 1.3.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
 Intelligent WordPress plugin loading management for admin interface - per-screen control with automatic optimization suggestions.
+
+Compatibility quick facts: WordPress 6.0+ | PHP 7.4+ | License GPLv2+
 
 == Description ==
 
@@ -138,7 +140,19 @@ All strategies preserve update badge accuracy and allow manual checks anytime.
 
 == Changelog ==
 
-= 1.2.0 (Current) =
+= 1.3.0 (Current) =
+* NEW: Secure GitHub Release updater with native WordPress update integration
+* NEW: SHA256 package integrity validation before install (download gate)
+* NEW: Strict trusted-host allowlist and package URL validation for updater
+* NEW: Extracted package structure validation (required root folder and main file)
+* IMPROVED: Frontend drawer now uses shared drawer CSS with unified visual system
+* IMPROVED: Frontend bar JavaScript refactor (Shadow DOM mount, per-page override UX, reset flow)
+* IMPROVED: Update metadata caching strategy (lock + fallback + HTTP validators)
+* IMPROVED: Admin/AJAX release hardening and input sanitization consistency
+* FIXED: Removed noisy debug logging from dependency/cascade paths
+* REMOVED: Legacy `assets/frontend-bar.css` (replaced by shared `assets/drawer.css`)
+
+= 1.2.0 =
 * NEW: Automatic Mode with auto-suggested optimization rules
 * NEW: Database storage for sampling data with 30-day retention
 * NEW: Update Optimizer with three strategies (TTL Extension, Page-Specific, Cron-Only)
@@ -167,6 +181,9 @@ All strategies preserve update badge accuracy and allow manual checks anytime.
 * WordPress core screen support
 
 == Upgrade Notice ==
+
+= 1.3.0 =
+Security-focused update release with GitHub updater + package integrity verification. For GitHub delivery, publish both ZIP and matching `.sha256` asset in release.
 
 = 1.2.0 =
 Major update with Automatic Mode and auto-suggested optimizations. Backup recommended before upgrading. Test on staging site first.

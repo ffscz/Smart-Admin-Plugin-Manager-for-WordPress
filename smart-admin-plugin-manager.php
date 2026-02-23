@@ -3,7 +3,7 @@
  * Plugin Name: Smart Admin Plugin Manager
  * Plugin URI: https://ffs.cz
  * Description: Plugin loading management in WordPress admin - per screen control.
- * Version: 1.2.0
+ * Version: 1.3.0
  * Requires at least: 6.0
  * Requires PHP: 7.4
  * Author: FFS.cz
@@ -22,7 +22,7 @@ define('SAPM_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('SAPM_PLUGIN_URL', plugin_dir_url(__FILE__));
 
 if (!defined('SAPM_VERSION')) {
-    define('SAPM_VERSION', '1.2.0');
+    define('SAPM_VERSION', '1.3.0');
 }
 if (!defined('SAPM_OPTION_KEY')) {
     define('SAPM_OPTION_KEY', 'sapm_plugin_rules');
@@ -38,7 +38,9 @@ require_once SAPM_PLUGIN_DIR . 'includes/class-sapm-database.php';
 require_once SAPM_PLUGIN_DIR . 'includes/class-sapm-dependencies.php';
 require_once SAPM_PLUGIN_DIR . 'includes/class-sapm-core.php';
 require_once SAPM_PLUGIN_DIR . 'includes/class-sapm-admin.php';
+require_once SAPM_PLUGIN_DIR . 'includes/class-sapm-frontend.php';
 require_once SAPM_PLUGIN_DIR . 'includes/class-sapm-update-optimizer.php';
+require_once SAPM_PLUGIN_DIR . 'includes/class-sapm-github-updater.php';
 
 register_activation_hook(__FILE__, 'sapm_activate_plugin');
 register_deactivation_hook(__FILE__, 'sapm_deactivate_plugin');
@@ -64,6 +66,13 @@ add_action('plugins_loaded', function () {
     $core = SAPM_Core::init();
     if (is_admin()) {
         SAPM_Admin::init($core);
+        // Also register frontend AJAX handlers for admin-ajax.php requests
+        if (wp_doing_ajax()) {
+            SAPM_Frontend::init($core);
+        }
+    } else {
+        // Initialize frontend optimizer for non-admin requests
+        SAPM_Frontend::init($core);
     }
 });
 

@@ -14,11 +14,8 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-// DEBUG: Mark that file was loaded
 if (!defined('SAPM_DEPS_LOADED')) {
     define('SAPM_DEPS_LOADED', true);
-    // Immediate debug to verify file load
-    error_log('[SAPM_DEPS] File loaded at ' . date('Y-m-d H:i:s'));
 }
 
 class SAPM_Dependencies {
@@ -133,14 +130,12 @@ class SAPM_Dependencies {
     }
 
     private function __construct() {
-        error_log('[SAPM_DEPS] Constructor called');
         $this->cascade_enabled = apply_filters('sapm_cascade_blocking_enabled', true);
         
         // Build dependency map immediately for early access
         // (filter_plugins runs before plugins_loaded)
         if ($this->cascade_enabled) {
             $this->build_dependency_map();
-            error_log('[SAPM_DEPS] Dependency map built: ' . count($this->dependency_map) . ' entries');
         }
         
         // Debug: show dependency map info if requested (via admin_init hook for reliability)

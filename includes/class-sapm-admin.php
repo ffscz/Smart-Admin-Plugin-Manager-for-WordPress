@@ -8,6 +8,8 @@ class SAPM_Admin {
 
     private static $instance = null;
 
+    private const ADMIN_THEME_OPTION = 'sapm_admin_theme';
+
     /** @var SAPM_Core */
     private $core;
 
@@ -44,6 +46,14 @@ class SAPM_Admin {
         add_action('wp_ajax_sapm_get_sampling_stats', [$this, 'ajax_get_sampling_stats']);
         add_action('wp_ajax_sapm_save_update_optimizer', [$this, 'ajax_save_update_optimizer']);
         add_action('wp_ajax_sapm_force_update_check', [$this, 'ajax_force_update_check']);
+        add_action('wp_ajax_sapm_save_admin_theme', [$this, 'ajax_save_admin_theme']);
+
+        // Frontend optimization AJAX handlers
+        add_action('wp_ajax_sapm_save_frontend_settings', [$this, 'ajax_save_frontend_settings']);
+        add_action('wp_ajax_sapm_save_frontend_rules', [$this, 'ajax_save_frontend_rules']);
+        add_action('wp_ajax_sapm_save_frontend_asset_rules', [$this, 'ajax_save_frontend_asset_rules']);
+        add_action('wp_ajax_sapm_get_frontend_asset_audit', [$this, 'ajax_get_frontend_asset_audit']);
+        add_action('wp_ajax_sapm_get_frontend_suggestions', [$this, 'ajax_get_frontend_suggestions']);
 
         add_action('admin_footer', [$this, 'render_admin_drawer']);
 
@@ -83,6 +93,7 @@ class SAPM_Admin {
             'nonce' => wp_create_nonce('sapm_nonce'),
             'currentScreen' => $this->core->get_current_screen_id(),
             'currentMode' => $this->core->get_mode(),
+            'adminTheme' => $this->get_admin_theme(),
             'strings' => [
                 'saving' => __('Saving...', 'sapm'),
                 'saved' => __('Saved!', 'sapm'),
@@ -95,6 +106,11 @@ class SAPM_Admin {
                 'suggestBlock' => __('Block', 'sapm'),
                 'suggestWhitelist' => __('Whitelist', 'sapm'),
                 'confidence' => __('Confidence', 'sapm'),
+                'countBlock' => __('Block', 'sapm'),
+                'countDelay' => __('Delay', 'sapm'),
+                'countAllow' => __('Allow', 'sapm'),
+                'themeSaved' => __('Theme saved!', 'sapm'),
+                'themeError' => __('Error saving theme', 'sapm'),
             ],
         ]);
     }
@@ -164,6 +180,10 @@ class SAPM_Admin {
         );
     }
 
+    private function get_admin_theme(): string {
+        return 'light';
+    }
+
     /**
      * Render settings page
      */
@@ -208,9 +228,57 @@ class SAPM_Admin {
             'other' => __('Other', 'sapm'),
         ];
 
+        $current_tab = sanitize_key($_GET['sapm_tab'] ?? 'admin');
+        if (!in_array($current_tab, ['admin', 'frontend', 'optimizer'], true)) {
+            $current_tab = 'admin';
+        }
+
+        $settings_page_url = admin_url('options-general.php?page=smart-admin-plugin-manager');
+        $admin_tab_url = add_query_arg(['sapm_tab' => 'admin'], $settings_page_url);
+        $frontend_tab_url = add_query_arg(['sapm_tab' => 'frontend'], $settings_page_url);
+        $optimizer_tab_url = add_query_arg(['sapm_tab' => 'optimizer'], $settings_page_url);
+        $admin_theme = $this->get_admin_theme();
+        $wrap_classes = [
+            'wrap',
+            'sapm-wrap',
+            'sapm-admin-tab-' . $current_tab,
+        ];
+        if ($current_tab === 'admin') {
+            $wrap_classes[] = 'sapm-admin-theme-' . $admin_theme;
+        }
+
         ?>
-        <div class="wrap sapm-wrap">
+        <div class="<?php echo esc_attr(implode(' ', $wrap_classes)); ?>" data-sapm-admin-theme="<?php echo esc_attr($admin_theme); ?>">
             <h1><?php _e('Smart Admin Plugin Manager', 'sapm'); ?></h1>
+
+            <div class="sapm-section-switch" role="navigation" aria-label="<?php esc_attr_e('Settings section switcher', 'sapm'); ?>">
+                <a href="<?php echo esc_url($admin_tab_url); ?>"
+                   class="sapm-section-switch__item <?php echo $current_tab === 'admin' ? 'is-active' : ''; ?>">
+                    <span class="sapm-section-switch__title">
+                        <span class="dashicons dashicons-admin-generic" aria-hidden="true"></span>
+                        <?php _e('Administration', 'sapm'); ?>
+                    </span>
+                    <span class="sapm-section-switch__desc"><?php _e('Plugin rules by admin page type', 'sapm'); ?></span>
+                </a>
+                <a href="<?php echo esc_url($frontend_tab_url); ?>"
+                   class="sapm-section-switch__item <?php echo $current_tab === 'frontend' ? 'is-active' : ''; ?>">
+                    <span class="sapm-section-switch__title">
+                        <span class="dashicons dashicons-admin-site-alt3" aria-hidden="true"></span>
+                        <?php _e('Frontend', 'sapm'); ?>
+                    </span>
+                    <span class="sapm-section-switch__desc"><?php _e('Rules for public pages and assets', 'sapm'); ?></span>
+                </a>
+                <a href="<?php echo esc_url($optimizer_tab_url); ?>"
+                   class="sapm-section-switch__item <?php echo $current_tab === 'optimizer' ? 'is-active' : ''; ?>">
+                    <span class="sapm-section-switch__title">
+                        <span class="dashicons dashicons-update" aria-hidden="true"></span>
+                        <?php _e('Update Optimizer', 'sapm'); ?>
+                    </span>
+                    <span class="sapm-section-switch__desc"><?php _e('Control update checks and updater endpoints', 'sapm'); ?></span>
+                </a>
+            </div>
+
+            <?php if ($current_tab === 'admin'): ?>
 
             <div class="sapm-current-screen">
                 <strong><?php _e('Current screen:', 'sapm'); ?></strong>
@@ -258,52 +326,31 @@ class SAPM_Admin {
                 <?php _e('AJAX, REST API, Cron and WP-CLI requests always load all plugins.', 'sapm'); ?>
             </div>
 
-            <div class="sapm-legend">
-                <div class="sapm-legend-item">
-                    <span class="sapm-status-dot enabled"></span>
-                    <span><?php _e('Always load', 'sapm'); ?></span>
-                </div>
-                <div class="sapm-legend-item">
-                    <span class="sapm-status-dot disabled"></span>
-                    <span><?php _e('Never load', 'sapm'); ?></span>
-                </div>
-                <div class="sapm-legend-item">
-                    <span class="sapm-status-dot defer"></span>
-                    <span><?php _e('Defer', 'sapm'); ?></span>
-                </div>
-                <div class="sapm-legend-item">
-                    <span class="sapm-status-dot default"></span>
-                    <span><?php _e('Default (load)', 'sapm'); ?></span>
-                </div>
-                <div class="sapm-legend-item">
-                    <span class="sapm-status-dot inherited"></span>
-                    <span><?php _e('Inherited from group', 'sapm'); ?></span>
-                </div>
-            </div>
-
             <!-- Mode Switcher -->
-            <div class="sapm-mode-switcher" style="margin: 20px 0; padding: 15px; background: #f9f9f9; border: 1px solid #ddd; border-radius: 5px;">
-                <strong style="margin-right: 15px;"><?php _e('Rules mode:', 'sapm'); ?></strong>
+            <div class="sapm-mode-switcher">
+                <strong><?php _e('Rules mode:', 'sapm'); ?></strong>
                 <?php $current_mode = $this->core->get_mode(); ?>
-                <label style="margin-right: 15px; cursor: pointer;">
+                <label>
                     <input type="radio" name="sapm_mode" value="manual" <?php checked($current_mode, 'manual'); ?>>
                     <?php _e('Manual', 'sapm'); ?>
-                    <span style="color: #666; font-size: 12px;">(<?php _e('manual rule settings', 'sapm'); ?>)</span>
+                    <span>(<?php _e('manual rule settings', 'sapm'); ?>)</span>
                 </label>
-                <label style="cursor: pointer;">
+                <label>
                     <input type="radio" name="sapm_mode" value="auto" <?php checked($current_mode, 'auto'); ?>>
                     <?php _e('Auto', 'sapm'); ?>
-                    <span style="color: #666; font-size: 12px;">(<?php _e('automatic suggestions based on sampling data', 'sapm'); ?>)</span>
+                    <span>(<?php _e('automatic suggestions based on sampling data', 'sapm'); ?>)</span>
                 </label>
-                <span id="sapm-mode-status" style="margin-left: 15px; color: #46b450;"></span>
+                <span id="sapm-mode-status"></span>
                 
-                <div id="sapm-auto-suggestions" style="display: none; margin-top: 15px; padding: 10px; background: #fff; border: 1px solid #ccc; border-radius: 3px;">
+                <div id="sapm-auto-suggestions" style="display: none;">
                     <strong><?php _e('Automatic suggestions:', 'sapm'); ?></strong>
-                    <p style="color: #666; font-size: 12px;"><?php _e('Based on sampling data, the following rules are suggested. You can accept or modify them.', 'sapm'); ?></p>
+                    <p><?php _e('Based on sampling data, the following rules are suggested. You can accept or modify them.', 'sapm'); ?></p>
                     <div id="sapm-suggestions-content"></div>
-                    <button type="button" id="sapm-apply-suggestions" class="button button-primary" style="margin-top: 10px;"><?php _e('Apply suggestions', 'sapm'); ?></button>
-                    <button type="button" id="sapm-refresh-suggestions" class="button" style="margin-top: 10px;"><?php _e('Refresh suggestions', 'sapm'); ?></button>
-                    <button type="button" id="sapm-reset-auto-data" class="button" style="margin-top: 10px; margin-left: 6px; color: #dc3232; border-color: #dc3232;"><?php _e('Reset Auto data', 'sapm'); ?></button>
+                    <div class="sapm-auto-suggestions-actions">
+                        <button type="button" id="sapm-apply-suggestions" class="button button-primary"><?php _e('Apply suggestions', 'sapm'); ?></button>
+                        <button type="button" id="sapm-refresh-suggestions" class="button"><?php _e('Refresh suggestions', 'sapm'); ?></button>
+                        <button type="button" id="sapm-reset-auto-data" class="button"><?php _e('Reset Auto data', 'sapm'); ?></button>
+                    </div>
                 </div>
             </div>
 
@@ -317,8 +364,13 @@ class SAPM_Admin {
             <div class="sapm-screen-group">
                 <div class="sapm-group-header">
                     <h3>
-                        <?php echo esc_html($group_labels[$group] ?? ucfirst($group)); ?>
-                        <span class="dashicons dashicons-arrow-down-alt2"></span>
+                        <span class="sapm-group-title-text"><?php echo esc_html($group_labels[$group] ?? ucfirst($group)); ?></span>
+                        <span class="sapm-group-header-stats" aria-live="polite">
+                            <span class="sapm-group-stat is-block"><strong>0</strong><em><?php esc_html_e('Block', 'sapm'); ?></em></span>
+                            <span class="sapm-group-stat is-delay"><strong>0</strong><em><?php esc_html_e('Delay', 'sapm'); ?></em></span>
+                            <span class="sapm-group-stat is-allow"><strong>0</strong><em><?php esc_html_e('Allow', 'sapm'); ?></em></span>
+                        </span>
+                        <span class="dashicons dashicons-arrow-down-alt2 sapm-collapse-icon"></span>
                     </h3>
                 </div>
                 <div class="sapm-group-content">
@@ -409,7 +461,20 @@ class SAPM_Admin {
 
             <?php $this->render_request_type_settings($plugins_to_show); ?>
 
+            <?php endif; ?>
+
+            <?php if ($current_tab === 'frontend'): ?>
+            <?php $this->render_frontend_tab(); ?>
+
+            <?php endif; ?>
+
+            <?php if ($current_tab === 'optimizer'): ?>
+
             <?php $this->render_update_optimizer_settings(); ?>
+
+            <?php endif; ?>
+
+            <?php if ($current_tab === 'admin'): ?>
 
             <div class="sapm-stats">
                 <h3><?php _e('Statistics', 'sapm'); ?></h3>
@@ -419,6 +484,8 @@ class SAPM_Admin {
                     <strong><?php _e('Custom rules:', 'sapm'); ?></strong> <?php echo $this->count_rules($rules); ?>
                 </p>
             </div>
+
+            <?php endif; ?>
         </div>
         <?php
     }
@@ -457,141 +524,247 @@ class SAPM_Admin {
             ],
         ];
         ?>
-        <div class="sapm-screen-group sapm-request-types">
+        <div class="sapm-screen-group sapm-request-types" id="sapm-request-types">
             <div class="sapm-group-header">
                 <h3>
                     <span class="dashicons dashicons-networking"></span>
-                    <?php _e('Request Type Settings (AJAX/REST/Cron/CLI)', 'sapm'); ?>
-                    <span class="dashicons dashicons-arrow-down-alt2"></span>
+                    <span class="sapm-group-title-text"><?php _e('Request Type Settings (AJAX/REST/Cron/CLI)', 'sapm'); ?></span>
+                    <span class="dashicons dashicons-arrow-down-alt2 sapm-collapse-icon"></span>
                 </h3>
             </div>
             <div class="sapm-group-content">
-                <div class="sapm-notice warning" style="margin-bottom: 15px;">
-                    <strong><?php _e('⚠️ Warning:', 'sapm'); ?></strong>
-                    <?php _e('These settings are for advanced users. Incorrect settings may cause AJAX functions, REST API or cron jobs to malfunction. We recommend leaving the default "Passthrough" if you are not sure.', 'sapm'); ?>
+                
+                <div class="sapm-rt-warning-box">
+                    <div class="sapm-rt-warning-icon">
+                        <span class="dashicons dashicons-warning"></span>
+                    </div>
+                    <div class="sapm-rt-warning-content">
+                         <strong><?php _e('Warning: Advanced Configuration', 'sapm'); ?></strong>
+                         <p><?php _e('Incorrect settings may cause AJAX functions, REST API or cron jobs to malfunction. We recommend leaving the default "Passthrough" if you are not sure.', 'sapm'); ?></p>
+                    </div>
                 </div>
 
+                <div class="sapm-rt-grid">
                 <?php foreach ($types as $type_id => $type_info):
                     $type_rules = $request_type_rules[$type_id] ?? [];
                     $mode = $type_rules['_mode'] ?? 'passthrough';
                     $disabled_plugins = $type_rules['disabled_plugins'] ?? [];
                     $default_plugins = $type_rules['default_plugins'] ?? [];
+                    
+                    // Determine badge class and text
+                    $badge_class = 'mode-' . $mode;
+                    $badge_text = '';
+                    switch($mode) {
+                        case 'passthrough': $badge_text = __('Passthrough', 'sapm'); break;
+                        case 'blacklist': $badge_text = __('Blacklist', 'sapm'); break;
+                        case 'whitelist': $badge_text = __('Whitelist', 'sapm'); break;
+                    }
                 ?>
-                <div class="sapm-screen-row sapm-request-type-row" data-request-type="<?php echo esc_attr($type_id); ?>">
-                    <div class="sapm-screen-name" style="width: 200px;">
-                        <span class="dashicons dashicons-<?php echo esc_attr($type_info['icon']); ?>"></span>
-                        <strong><?php echo esc_html($type_info['label']); ?></strong>
-                        <br><small style="color: #666;"><?php echo esc_html($type_info['desc']); ?></small>
-                    </div>
-                    <div class="sapm-request-type-settings" style="flex: 1;">
-                        <div class="sapm-mode-selector" style="margin-bottom: 10px;">
-                            <label style="margin-right: 15px;">
+                <details class="sapm-rt-card">
+                    <summary class="sapm-rt-card-header">
+                        <div class="sapm-rt-card-title">
+                            <div class="sapm-rt-icon-wrapper">
+                                <span class="dashicons dashicons-<?php echo esc_attr($type_info['icon']); ?>"></span>
+                            </div>
+                            <div class="sapm-rt-title-text">
+                                <strong><?php echo esc_html($type_info['label']); ?></strong>
+                                <span class="sapm-rt-desc"><?php echo esc_html($type_info['desc']); ?></span>
+                            </div>
+                        </div>
+                        <div class="sapm-rt-header-meta">
+                            <span class="sapm-mode-pill <?php echo esc_attr($badge_class); ?>">
+                                <?php echo esc_html($badge_text); ?>
+                            </span>
+                            <span class="dashicons dashicons-arrow-down-alt2 sapm-rt-toggle-icon"></span>
+                        </div>
+                    </summary>
+                    
+                    <div class="sapm-rt-card-body" data-request-type="<?php echo esc_attr($type_id); ?>">
+                        <div class="sapm-rt-mode-selector">
+                            <label class="sapm-rt-radio-option <?php echo $mode === 'passthrough' ? 'selected' : ''; ?>">
                                 <input type="radio" name="sapm_rt_mode_<?php echo esc_attr($type_id); ?>" 
                                        value="passthrough" <?php checked($mode, 'passthrough'); ?>
                                        class="sapm-rt-mode" data-type="<?php echo esc_attr($type_id); ?>">
-                                <strong><?php _e('Passthrough', 'sapm'); ?></strong>
-                                <span style="color: #666;">(<?php _e('all plugins', 'sapm'); ?>)</span>
+                                <div class="sapm-rt-radio-visual">
+                                    <svg class="sapm-radio-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <circle cx="12" cy="12" r="10"></circle>
+                                        <path class="check" d="M8 12l3 3 5-5"></path>
+                                    </svg>
+                                </div>
+                                <div class="sapm-rt-radio-content">
+                                    <strong><?php _e('Passthrough', 'sapm'); ?></strong>
+                                    <span class="meta"><?php _e('Load all plugins (Default)', 'sapm'); ?></span>
+                                </div>
                             </label>
-                            <label style="margin-right: 15px;">
+
+                            <label class="sapm-rt-radio-option <?php echo $mode === 'blacklist' ? 'selected' : ''; ?>">
                                 <input type="radio" name="sapm_rt_mode_<?php echo esc_attr($type_id); ?>" 
                                        value="blacklist" <?php checked($mode, 'blacklist'); ?>
                                        class="sapm-rt-mode" data-type="<?php echo esc_attr($type_id); ?>">
-                                <strong><?php _e('Blacklist', 'sapm'); ?></strong>
-                                <span style="color: #666;">(<?php _e('block selected', 'sapm'); ?>)</span>
+                                <div class="sapm-rt-radio-visual">
+                                    <svg class="sapm-radio-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <circle cx="12" cy="12" r="10"></circle>
+                                        <path class="check" d="M8 12l3 3 5-5"></path>
+                                    </svg>
+                                </div>
+                                <div class="sapm-rt-radio-content">
+                                    <strong><?php _e('Blacklist', 'sapm'); ?></strong>
+                                    <span class="meta"><?php _e('Block selected plugins', 'sapm'); ?></span>
+                                </div>
                             </label>
-                            <label>
+
+                            <label class="sapm-rt-radio-option <?php echo $mode === 'whitelist' ? 'selected' : ''; ?>">
                                 <input type="radio" name="sapm_rt_mode_<?php echo esc_attr($type_id); ?>" 
                                        value="whitelist" <?php checked($mode, 'whitelist'); ?>
                                        class="sapm-rt-mode" data-type="<?php echo esc_attr($type_id); ?>">
-                                <strong><?php _e('Whitelist', 'sapm'); ?></strong>
-                                <span style="color: #666;">(<?php _e('only selected', 'sapm'); ?>)</span>
+                                <div class="sapm-rt-radio-visual">
+                                    <svg class="sapm-radio-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <circle cx="12" cy="12" r="10"></circle>
+                                        <path class="check" d="M8 12l3 3 5-5"></path>
+                                    </svg>
+                                </div>
+                                <div class="sapm-rt-radio-content">
+                                    <strong><?php _e('Whitelist', 'sapm'); ?></strong>
+                                    <span class="meta"><?php _e('Allow only selected', 'sapm'); ?></span>
+                                </div>
                             </label>
                         </div>
 
-                        <div class="sapm-rt-blacklist-config" style="display: <?php echo $mode === 'blacklist' ? 'block' : 'none'; ?>; margin-top: 10px; padding: 10px; background: #fef7f1; border-radius: 4px;">
-                            <strong style="color: #d63638;"><?php _e('Never load these plugins:', 'sapm'); ?></strong>
-                            <div class="sapm-rt-plugin-list" style="margin-top: 8px;">
-                                <?php foreach ($plugins_to_show as $plugin_file => $plugin_data):
-                                    $is_disabled = in_array($plugin_file, $disabled_plugins, true);
-                                ?>
-                                <label style="display: inline-block; margin-right: 10px; margin-bottom: 5px;">
-                                    <input type="checkbox" class="sapm-rt-disabled-plugin" 
-                                           data-type="<?php echo esc_attr($type_id); ?>"
-                                           value="<?php echo esc_attr($plugin_file); ?>"
-                                           <?php checked($is_disabled); ?>>
-                                    <?php echo esc_html($plugin_data['Name']); ?>
-                                </label>
-                                <?php endforeach; ?>
-                            </div>
-                        </div>
-
-                        <div class="sapm-rt-whitelist-config" style="display: <?php echo $mode === 'whitelist' ? 'block' : 'none'; ?>; margin-top: 10px; padding: 10px; background: #f0f6e9; border-radius: 4px;">
-                            <strong style="color: #00a32a;"><?php _e('Always load these plugins:', 'sapm'); ?></strong>
-                            <div class="sapm-rt-plugin-list" style="margin-top: 8px;">
-                                <?php foreach ($plugins_to_show as $plugin_file => $plugin_data):
-                                    $is_enabled = in_array($plugin_file, $default_plugins, true);
-                                ?>
-                                <label style="display: inline-block; margin-right: 10px; margin-bottom: 5px;">
-                                    <input type="checkbox" class="sapm-rt-enabled-plugin" 
-                                           data-type="<?php echo esc_attr($type_id); ?>"
-                                           value="<?php echo esc_attr($plugin_file); ?>"
-                                           <?php checked($is_enabled); ?>>
-                                    <?php echo esc_html($plugin_data['Name']); ?>
-                                </label>
-                                <?php endforeach; ?>
+                        <div class="sapm-rt-config-area">
+                            <div class="sapm-rt-blacklist-config" style="display: <?php echo $mode === 'blacklist' ? 'block' : 'none'; ?>;">
+                                <div class="sapm-rt-config-header danger">
+                                    <span class="dashicons dashicons-no-alt"></span>
+                                    <?php _e('Select plugins to BLOCK:', 'sapm'); ?>
+                                </div>
+                                <div class="sapm-rt-plugin-list">
+                                    <?php foreach ($plugins_to_show as $plugin_file => $plugin_data):
+                                        $is_disabled = in_array($plugin_file, $disabled_plugins, true);
+                                    ?>
+                                    <label class="sapm-rt-plugin-check <?php echo $is_disabled ? 'checked' : ''; ?>">
+                                        <input type="checkbox" class="sapm-rt-disabled-plugin" 
+                                               data-type="<?php echo esc_attr($type_id); ?>"
+                                               value="<?php echo esc_attr($plugin_file); ?>"
+                                               <?php checked($is_disabled); ?>>
+                                        <span class="check-box"></span>
+                                        <span class="plugin-name"><?php echo esc_html($plugin_data['Name']); ?></span>
+                                    </label>
+                                    <?php endforeach; ?>
+                                </div>
                             </div>
 
-                            <?php if (!empty($type_info['supports_detection'])): ?>
-                            <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #ddd;">
-                                <label>
-                                    <input type="checkbox" class="sapm-rt-detection" 
-                                           data-type="<?php echo esc_attr($type_id); ?>"
-                                           <?php checked(!empty($type_rules['_detect_by_action']) || !empty($type_rules['_detect_by_namespace'])); ?>>
-                                    <?php echo esc_html($type_info['detection_label']); ?>
-                                </label>
-                                <p style="margin: 5px 0 0; color: #666; font-size: 12px;">
-                                    <?php _e('Automatically adds required plugins based on request context (e.g. WooCommerce for woocommerce_* actions).', 'sapm'); ?>
-                                </p>
+                            <div class="sapm-rt-whitelist-config" style="display: <?php echo $mode === 'whitelist' ? 'block' : 'none'; ?>;">
+                                <div class="sapm-rt-config-header success">
+                                    <span class="dashicons dashicons-yes-alt"></span>
+                                    <?php _e('Select plugins to ALLOW:', 'sapm'); ?>
+                                </div>
+                                <div class="sapm-rt-plugin-list">
+                                    <?php foreach ($plugins_to_show as $plugin_file => $plugin_data):
+                                        $is_enabled = in_array($plugin_file, $default_plugins, true);
+                                    ?>
+                                    <label class="sapm-rt-plugin-check <?php echo $is_enabled ? 'checked' : ''; ?>">
+                                        <input type="checkbox" class="sapm-rt-enabled-plugin" 
+                                               data-type="<?php echo esc_attr($type_id); ?>"
+                                               value="<?php echo esc_attr($plugin_file); ?>"
+                                               <?php checked($is_enabled); ?>>
+                                        <span class="check-box"></span>
+                                        <span class="plugin-name"><?php echo esc_html($plugin_data['Name']); ?></span>
+                                    </label>
+                                    <?php endforeach; ?>
+                                </div>
+
+                                <?php if (!empty($type_info['supports_detection'])): ?>
+                                <div class="sapm-rt-detection-option">
+                                    <label>
+                                        <input type="checkbox" class="sapm-rt-detection" 
+                                               data-type="<?php echo esc_attr($type_id); ?>"
+                                               <?php checked(!empty($type_rules['_detect_by_action']) || !empty($type_rules['_detect_by_namespace'])); ?>>
+                                        <strong><?php echo esc_html($type_info['detection_label']); ?></strong>
+                                        <p><?php _e('Automatically adds required plugins based on request context (e.g. WooCommerce for woocommerce_* actions).', 'sapm'); ?></p>
+                                    </label>
+                                </div>
+                                <?php endif; ?>
                             </div>
-                            <?php endif; ?>
                         </div>
                     </div>
-                </div>
+                </details>
                 <?php endforeach; ?>
+                </div>
 
-                <div style="margin-top: 15px; text-align: right;">
-                    <button type="button" id="sapm-save-request-types" class="button button-primary">
-                        <span class="dashicons dashicons-saved" style="margin-top: 4px;"></span>
-                        <?php _e('Save request type settings', 'sapm'); ?>
+                <div class="sapm-rt-footer-actions">
+                    <button type="button" id="sapm-save-request-types" class="button button-primary button-hero">
+                        <span class="dashicons dashicons-saved"></span>
+                        <?php _e('Save Request Type Settings', 'sapm'); ?>
                     </button>
-                    <span id="sapm-rt-save-status" style="margin-left: 10px; color: #46b450;"></span>
+                    <span id="sapm-rt-save-status"></span>
                 </div>
 
                 <!-- Request Type Performance Sampling Section -->
-                <div class="sapm-rt-performance-section" style="margin-top: 30px; padding-top: 20px; border-top: 2px solid #ddd;">
-                    <h4 style="margin-bottom: 15px;">
-                        <span class="dashicons dashicons-chart-bar" style="margin-right: 5px;"></span>
-                        <?php _e('Per-Plugin Performance Measurement (Sampling)', 'sapm'); ?>
-                    </h4>
-                    <p style="color: #666; margin-bottom: 15px;">
-                        <?php _e('This feature automatically measures individual plugin performance during AJAX/REST/Cron/CLI requests using random sampling (5% of requests). This data will help you decide which plugins to block for optimization.', 'sapm'); ?>
-                    </p>
-                    <div style="margin-bottom: 15px;">
-                        <button type="button" id="sapm-load-rt-performance" class="button">
-                            <span class="dashicons dashicons-update" style="margin-top: 4px;"></span>
-                            <?php _e('Load performance data', 'sapm'); ?>
+                <div class="sapm-rt-performance-card">
+                    <div class="sapm-rt-perf-header">
+                        <div class="sapm-rt-perf-icon">
+                            <span class="dashicons dashicons-chart-bar"></span>
+                        </div>
+                        <div class="sapm-rt-perf-title">
+                            <h4><?php _e('Per-Plugin Performance Measurement (Sampling)', 'sapm'); ?></h4>
+                            <p><?php _e('Measures individual plugin performance during requests using random sampling (5% of requests). helps decide optimization.', 'sapm'); ?></p>
+                        </div>
+                    </div>
+                    <div class="sapm-rt-perf-actions">
+                        <button type="button" id="sapm-load-rt-performance" class="button button-secondary">
+                            <span class="dashicons dashicons-update"></span>
+                            <?php _e('Load data', 'sapm'); ?>
                         </button>
-                        <button type="button" id="sapm-clear-rt-performance" class="button" style="margin-left: 10px; color: #d63638;">
-                            <span class="dashicons dashicons-trash" style="margin-top: 4px;"></span>
-                            <?php _e('Delete all data', 'sapm'); ?>
+                        <button type="button" id="sapm-clear-rt-performance" class="button button-link-delete">
+                            <span class="dashicons dashicons-trash"></span>
+                            <?php _e('Delete data', 'sapm'); ?>
                         </button>
                     </div>
                     <div id="sapm-rt-performance-container" style="display: none;">
                         <!-- Data will be loaded via AJAX -->
                     </div>
                 </div>
+
             </div>
         </div>
+        
+        <script>
+        jQuery(function($) {
+            // Update UI when radio changes
+            $(document).on('change', '.sapm-rt-mode', function() {
+                var $card = $(this).closest('.sapm-rt-card');
+                var val = $(this).val();
+                var $options = $card.find('.sapm-rt-radio-option');
+                
+                $options.removeClass('selected');
+                $(this).closest('.sapm-rt-radio-option').addClass('selected');
+                
+                // Update badge in summary
+                var $badge = $card.find('.sapm-mode-pill');
+                $badge.removeClass('mode-passthrough mode-blacklist mode-whitelist').addClass('mode-' + val);
+                var label = $(this).closest('label').find('strong').text();
+                $badge.text(label);
+                
+                // Show/hide content areas
+                $card.find('.sapm-rt-blacklist-config').slideUp(200);
+                $card.find('.sapm-rt-whitelist-config').slideUp(200);
+                
+                if (val === 'blacklist') {
+                    $card.find('.sapm-rt-blacklist-config').slideDown(200);
+                } else if (val === 'whitelist') {
+                    $card.find('.sapm-rt-whitelist-config').slideDown(200);
+                }
+            });
+            
+            // Highlight checked plugins
+            $(document).on('change', '.sapm-rt-plugin-check input', function() {
+                if($(this).is(':checked')) {
+                    $(this).closest('.sapm-rt-plugin-check').addClass('checked');
+                } else {
+                    $(this).closest('.sapm-rt-plugin-check').removeClass('checked');
+                }
+            });
+        });
+        </script>
         <?php
     }
 
@@ -626,97 +799,117 @@ class SAPM_Admin {
         
         // Format last check time
         $last_check = $stats['last_plugin_check'] ?? 0;
-        $hours_ago = $last_check ? round((time() - $last_check) / HOUR_IN_SECONDS, 1) : 0;
         $next_cron = $stats['next_cron_check'] ?? 0;
         ?>
         <div class="sapm-screen-group sapm-update-optimizer" id="sapm-update-optimizer">
             <div class="sapm-group-header">
                 <h3>
                     <span class="dashicons dashicons-update"></span>
-                    <?php _e('Update Optimizer', 'sapm'); ?>
-                    <span class="dashicons dashicons-arrow-down-alt2"></span>
+                    <span class="sapm-group-title-text"><?php _e('Update Optimizer', 'sapm'); ?></span>
                     <?php if ($config['enabled']): ?>
-                        <span class="sapm-badge sapm-badge-success" style="margin-left: 10px;"><?php _e('Active', 'sapm'); ?></span>
+                        <span class="sapm-mode-pill mode-whitelist"><?php _e('Active', 'sapm'); ?></span>
                     <?php endif; ?>
+                    <span class="dashicons dashicons-arrow-down-alt2 sapm-collapse-icon"></span>
                 </h3>
             </div>
             <div class="sapm-group-content">
-                <div class="sapm-notice info" style="margin-bottom: 15px;">
+                <div class="sapm-notice info">
                     <strong><?php _e('💡 Tip:', 'sapm'); ?></strong>
                     <?php _e('WordPress by default checks for updates on EVERY admin page load. Update Optimizer blocks these HTTP requests outside of dedicated pages, significantly speeding up admin.', 'sapm'); ?>
                 </div>
 
-                <!-- Main toggle -->
-                <div class="sapm-setting-row" style="margin-bottom: 20px; padding: 15px; background: #f8f9fa; border-radius: 5px;">
-                    <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
-                        <input type="checkbox" id="sapm-uo-enabled" <?php checked($config['enabled']); ?> style="width: 18px; height: 18px;">
-                        <strong style="font-size: 14px;"><?php _e('Enable Update Optimizer', 'sapm'); ?></strong>
-                    </label>
+                <div class="sapm-screen-row">
+                    <div class="sapm-screen-name">
+                        <?php _e('Enable Update Optimizer', 'sapm'); ?>
+                        <small><?php _e('Blocks update checks outside dedicated update pages.', 'sapm'); ?></small>
+                    </div>
+                    <div class="sapm-screen-plugins">
+                        <label class="sapm-rt-plugin-check <?php echo !empty($config['enabled']) ? 'checked' : ''; ?>">
+                            <input type="checkbox" id="sapm-uo-enabled" <?php checked($config['enabled']); ?>>
+                            <span class="check-box"></span>
+                            <span class="plugin-name"><?php _e('Enabled', 'sapm'); ?></span>
+                        </label>
+                    </div>
                 </div>
 
-                <!-- Strategy -->
-                <div class="sapm-setting-row" style="margin-bottom: 20px;">
-                    <h4 style="margin-top: 0; margin-bottom: 10px;">
+                <div class="sapm-setting-row">
+                    <h4>
                         <span class="dashicons dashicons-admin-settings"></span>
                         <?php _e('Optimization strategy', 'sapm'); ?>
                     </h4>
-                    <?php foreach ($strategies as $strategy_id => $strategy_info): ?>
-                    <label style="display: block; margin-bottom: 10px; padding: 10px; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; <?php echo ($config['strategy'] === $strategy_id) ? 'background: #e7f3ff; border-color: #2271b1;' : ''; ?>">
-                        <input type="radio" name="sapm_uo_strategy" value="<?php echo esc_attr($strategy_id); ?>" 
-                               <?php checked($config['strategy'], $strategy_id); ?> class="sapm-uo-strategy">
-                        <strong><?php echo esc_html($strategy_info['label']); ?></strong>
-                        <?php if ($strategy_id === 'cron_only'): ?>
-                            <span class="sapm-badge sapm-badge-warning" style="margin-left: 5px; font-size: 11px;"><?php _e('Recommended', 'sapm'); ?></span>
-                        <?php endif; ?>
-                        <br>
-                        <small style="color: #666; margin-left: 22px;"><?php echo esc_html($strategy_info['desc']); ?></small>
-                    </label>
-                    <?php endforeach; ?>
+                    <div class="sapm-rt-mode-selector">
+                        <?php foreach ($strategies as $strategy_id => $strategy_info): ?>
+                        <label class="sapm-rt-radio-option sapm-uo-strategy-option <?php echo $config['strategy'] === $strategy_id ? 'selected' : ''; ?>">
+                            <input type="radio" name="sapm_uo_strategy" value="<?php echo esc_attr($strategy_id); ?>"
+                                   <?php checked($config['strategy'], $strategy_id); ?> class="sapm-uo-strategy">
+                            <div class="sapm-rt-radio-visual">
+                                <svg class="sapm-radio-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <circle cx="12" cy="12" r="10"></circle>
+                                    <path class="check" d="M8 12l3 3 5-5"></path>
+                                </svg>
+                            </div>
+                            <div class="sapm-rt-radio-content">
+                                <div class="sapm-rt-radio-heading">
+                                    <strong><?php echo esc_html($strategy_info['label']); ?></strong>
+                                    <?php if ($strategy_id === 'cron_only'): ?>
+                                        <span class="sapm-mode-pill mode-whitelist"><?php _e('Recommended', 'sapm'); ?></span>
+                                    <?php endif; ?>
+                                </div>
+                                <span class="meta"><?php echo esc_html($strategy_info['desc']); ?></span>
+                            </div>
+                        </label>
+                        <?php endforeach; ?>
+                    </div>
                 </div>
 
-                <!-- TTL settings (only for ttl_extension) -->
-                <div class="sapm-setting-row sapm-uo-ttl-settings" style="margin-bottom: 20px; <?php echo ($config['strategy'] !== 'ttl_extension') ? 'display:none;' : ''; ?>">
-                    <h4 style="margin-top: 0; margin-bottom: 10px;">
+                <div class="sapm-setting-row sapm-uo-ttl-settings" style="<?php echo ($config['strategy'] !== 'ttl_extension') ? 'display:none;' : ''; ?>">
+                    <h4>
                         <span class="dashicons dashicons-clock"></span>
                         <?php _e('TTL Extension', 'sapm'); ?>
                     </h4>
-                    <label>
-                        <?php _e('Cache valid for:', 'sapm'); ?>
-                        <select id="sapm-uo-ttl-hours" style="margin-left: 10px;">
+                    <div class="sapm-screen-row">
+                        <div class="sapm-screen-name">
+                            <?php _e('Cache valid for', 'sapm'); ?>
+                        </div>
+                        <div class="sapm-screen-plugins">
+                            <select id="sapm-uo-ttl-hours">
                             <option value="12" <?php selected($config['ttl_hours'], 12); ?>>12 <?php _e('hours', 'sapm'); ?></option>
                             <option value="24" <?php selected($config['ttl_hours'], 24); ?>>24 <?php _e('hours', 'sapm'); ?></option>
                             <option value="48" <?php selected($config['ttl_hours'], 48); ?>>48 <?php _e('hours', 'sapm'); ?></option>
                             <option value="72" <?php selected($config['ttl_hours'], 72); ?>>72 <?php _e('hours', 'sapm'); ?></option>
-                        </select>
-                    </label>
+                            </select>
+                        </div>
+                    </div>
                 </div>
 
-                <!-- Cron interval (only for cron_only) -->
-                <div class="sapm-setting-row sapm-uo-cron-settings" style="margin-bottom: 20px; <?php echo ($config['strategy'] !== 'cron_only') ? 'display:none;' : ''; ?>">
-                    <h4 style="margin-top: 0; margin-bottom: 10px;">
+                <div class="sapm-setting-row sapm-uo-cron-settings" style="<?php echo ($config['strategy'] !== 'cron_only') ? 'display:none;' : ''; ?>">
+                    <h4>
                         <span class="dashicons dashicons-backup"></span>
                         <?php _e('Cron Check Interval', 'sapm'); ?>
                     </h4>
-                    <label>
-                        <?php _e('Check for updates:', 'sapm'); ?>
-                        <select id="sapm-uo-cron-interval" style="margin-left: 10px;">
+                    <div class="sapm-screen-row">
+                        <div class="sapm-screen-name">
+                            <?php _e('Check for updates', 'sapm'); ?>
+                        </div>
+                        <div class="sapm-screen-plugins">
+                            <select id="sapm-uo-cron-interval">
                             <?php foreach ($cron_intervals as $interval_id => $interval_label): ?>
                             <option value="<?php echo esc_attr($interval_id); ?>" <?php selected($config['cron_interval'] ?? 'twicedaily', $interval_id); ?>>
                                 <?php echo esc_html($interval_label); ?>
                             </option>
                             <?php endforeach; ?>
-                        </select>
-                    </label>
+                            </select>
+                        </div>
+                    </div>
                 </div>
 
-                <!-- Plugin Updater Blocking -->
-                <div class="sapm-setting-row sapm-updater-section" style="margin-bottom: 20px;">
-                    <h4 style="margin-top: 0; margin-bottom: 15px;">
+                <div class="sapm-setting-row sapm-updater-section">
+                    <h4>
                         <span class="dashicons dashicons-shield-alt"></span>
                         <?php _e('Plugin Updater Blocking', 'sapm'); ?>
                     </h4>
-                    <p style="color: #50575e; margin-bottom: 20px;">
-                        <span class="dashicons dashicons-info" style="color: #2271b1;"></span>
+                    <p>
+                        <span class="dashicons dashicons-info"></span>
                         <?php _e('List of blocked endpoints for plugins installed on this site. Click to change state: red = blocked, green = allowed.', 'sapm'); ?>
                     </p>
                     <?php 
@@ -763,80 +956,104 @@ class SAPM_Admin {
                     </div>
                 </div>
 
-                <!-- Stale indicator toggle -->
-                <div class="sapm-setting-row" style="margin-bottom: 20px;">
-                    <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
-                        <input type="checkbox" id="sapm-uo-stale-indicator" <?php checked($config['show_stale_indicator']); ?>>
+                <div class="sapm-screen-row">
+                    <div class="sapm-screen-name">
                         <?php _e('Show "Stale data" indicator', 'sapm'); ?>
-                        <span style="color: #666;"><?php _e('(info when updates were last checked)', 'sapm'); ?></span>
-                    </label>
+                        <small><?php _e('Displays when update data were last checked.', 'sapm'); ?></small>
+                    </div>
+                    <div class="sapm-screen-plugins">
+                        <label class="sapm-rt-plugin-check <?php echo !empty($config['show_stale_indicator']) ? 'checked' : ''; ?>">
+                            <input type="checkbox" id="sapm-uo-stale-indicator" <?php checked($config['show_stale_indicator']); ?>>
+                            <span class="check-box"></span>
+                            <span class="plugin-name"><?php _e('Enabled', 'sapm'); ?></span>
+                        </label>
+                    </div>
                 </div>
 
-                <!-- Statistics -->
-                <div class="sapm-setting-row" style="background: #f0f6fc; padding: 15px; border-radius: 5px; margin-bottom: 20px;">
-                    <h4 style="margin-top: 0; margin-bottom: 10px;">
-                        <span class="dashicons dashicons-chart-bar"></span>
-                        <?php _e('Statistics', 'sapm'); ?>
-                    </h4>
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
-                        <div>
-                            <strong><?php _e('Last check:', 'sapm'); ?></strong><br>
-                            <span class="sapm-last-check-value">
-                            <?php if ($last_check): ?>
-                                <?php echo esc_html(human_time_diff($last_check) . ' ' . __('ago', 'sapm')); ?>
-                                <br><small style="color: #666;"><?php echo esc_html(date_i18n('j.n.Y H:i', $last_check)); ?></small>
-                            <?php else: ?>
-                                <span style="color: #d63638;"><?php _e('Never', 'sapm'); ?></span>
-                            <?php endif; ?>
-                            </span>
+                <div class="sapm-screen-group sapm-uo-stats-group">
+                    <div class="sapm-group-header">
+                        <h3>
+                            <span class="dashicons dashicons-chart-bar"></span>
+                            <span class="sapm-group-title-text"><?php _e('Statistics', 'sapm'); ?></span>
+                            <span class="dashicons dashicons-arrow-down-alt2 sapm-collapse-icon"></span>
+                        </h3>
+                    </div>
+                    <div class="sapm-group-content">
+                        <div class="sapm-screen-row">
+                            <div class="sapm-screen-name"><?php _e('Last check', 'sapm'); ?></div>
+                            <div class="sapm-screen-plugins">
+                                <span class="sapm-last-check-value">
+                                <?php if ($last_check): ?>
+                                    <?php echo esc_html(human_time_diff($last_check) . ' ' . __('ago', 'sapm')); ?>
+                                    <small><?php echo esc_html(date_i18n('j.n.Y H:i', $last_check)); ?></small>
+                                <?php else: ?>
+                                    <?php _e('Never', 'sapm'); ?>
+                                <?php endif; ?>
+                                </span>
+                            </div>
                         </div>
-                        <div>
-                            <strong><?php _e('Next cron check:', 'sapm'); ?></strong><br>
-                            <?php if ($next_cron): ?>
-                                <?php echo esc_html(human_time_diff($next_cron)); ?>
-                                <br><small style="color: #666;"><?php echo esc_html(date_i18n('j.n.Y H:i', $next_cron)); ?></small>
-                            <?php else: ?>
-                                <span style="color: #666;"><?php _e('Not scheduled', 'sapm'); ?></span>
-                            <?php endif; ?>
+                        <div class="sapm-screen-row">
+                            <div class="sapm-screen-name"><?php _e('Next cron check', 'sapm'); ?></div>
+                            <div class="sapm-screen-plugins">
+                                <?php if ($next_cron): ?>
+                                    <span><?php echo esc_html(human_time_diff($next_cron)); ?></span>
+                                    <small><?php echo esc_html(date_i18n('j.n.Y H:i', $next_cron)); ?></small>
+                                <?php else: ?>
+                                    <span><?php _e('Not scheduled', 'sapm'); ?></span>
+                                <?php endif; ?>
+                            </div>
                         </div>
-                        <div>
-                            <strong><?php _e('Available updates:', 'sapm'); ?></strong><br>
-                            <span style="font-size: 18px; font-weight: bold; color: <?php echo $stats['plugin_updates_cached'] > 0 ? '#d63638' : '#00a32a'; ?>;">
-                                <span class="sapm-updates-count"><?php echo intval($stats['plugin_updates_cached']); ?> <?php _e('plugins', 'sapm'); ?><?php if ($stats['theme_updates_cached'] > 0): ?> + <?php echo intval($stats['theme_updates_cached']); ?> <?php _e('themes', 'sapm'); ?><?php endif; ?></span>
-                            </span>
+                        <div class="sapm-screen-row">
+                            <div class="sapm-screen-name"><?php _e('Available updates', 'sapm'); ?></div>
+                            <div class="sapm-screen-plugins">
+                                <span class="sapm-updates-count"><?php echo intval($stats['plugin_updates_cached']); ?> <?php _e('plugins', 'sapm'); ?> + <?php echo intval($stats['theme_updates_cached']); ?> <?php _e('themes', 'sapm'); ?> + <?php echo intval($stats['translation_updates_cached'] ?? 0); ?> <?php _e('translations', 'sapm'); ?></span>
+                            </div>
                         </div>
-                        <div>
-                            <strong><?php _e('Blocked this request:', 'sapm'); ?></strong><br>
-                            <span style="font-size: 18px; font-weight: bold; color: #2271b1;">
-                                <?php echo intval($stats['blocked_this_request']); ?>
-                            </span>
-                            <?php _e('HTTP requests', 'sapm'); ?>
+                        <div class="sapm-screen-row">
+                            <div class="sapm-screen-name"><?php _e('Blocked this request', 'sapm'); ?></div>
+                            <div class="sapm-screen-plugins"><?php echo intval($stats['blocked_this_request']); ?> <?php _e('HTTP requests', 'sapm'); ?></div>
                         </div>
                     </div>
                 </div>
 
-                <div class="sapm-setting-row" style="display: flex; gap: 10px; flex-wrap: wrap;">
-                    <button type="button" id="sapm-uo-save" class="button button-primary">
-                        <span class="dashicons dashicons-saved" style="margin-top: 4px;"></span>
+                <div class="sapm-rt-footer-actions">
+                    <button type="button" id="sapm-uo-save" class="button button-primary button-hero">
+                        <span class="dashicons dashicons-saved"></span>
                         <?php _e('Save settings', 'sapm'); ?>
                     </button>
-                    <button type="button" id="sapm-uo-force-check" class="button">
-                        <span class="dashicons dashicons-update" style="margin-top: 4px;"></span>
+                    <button type="button" id="sapm-uo-force-check" class="button button-secondary button-hero">
+                        <span class="dashicons dashicons-update"></span>
                         <?php _e('Force update check', 'sapm'); ?>
                     </button>
+                    <span id="sapm-uo-status"></span>
                 </div>
             </div>
         </div>
         
         <script>
         jQuery(function($) {
+            function syncOptimizerCheckboxState($input) {
+                var $wrapper = $input.closest('.sapm-rt-plugin-check');
+                if (!$wrapper.length) {
+                    return;
+                }
+                $wrapper.toggleClass('checked', $input.is(':checked'));
+            }
+
+            $('#sapm-update-optimizer .sapm-rt-plugin-check input[type="checkbox"]').each(function() {
+                syncOptimizerCheckboxState($(this));
+            });
+
+            $(document).on('change', '#sapm-update-optimizer .sapm-rt-plugin-check input[type="checkbox"]', function() {
+                syncOptimizerCheckboxState($(this));
+            });
+
             $('.sapm-uo-strategy').on('change', function() {
                 var strategy = $(this).val();
                 $('.sapm-uo-ttl-settings').toggle(strategy === 'ttl_extension');
                 $('.sapm-uo-cron-settings').toggle(strategy === 'cron_only');
-                // Update visual styling
-                $('label:has(.sapm-uo-strategy)').css({'background': '', 'border-color': '#ddd'});
-                $(this).closest('label').css({'background': '#e7f3ff', 'border-color': '#2271b1'});
+                $('.sapm-uo-strategy-option').removeClass('selected');
+                $(this).closest('.sapm-uo-strategy-option').addClass('selected');
             });
 
             $(document).on('click', '.sapm-updater-endpoint', function(e) {
@@ -857,20 +1074,17 @@ class SAPM_Admin {
                 var $icon = $item.find('.dashicons');
                 $icon.removeClass('dashicons-yes dashicons-no');
                 $icon.addClass(newState ? 'dashicons-yes' : 'dashicons-no');
-                
-                var $ripple = $('<span class="ripple"></span>');
-                $item.append($ripple);
-                setTimeout(function() { $ripple.remove(); }, 600);
             });
 
             $('#sapm-uo-save').on('click', function() {
                 var $btn = $(this);
+                var $status = $('#sapm-uo-status');
                 $btn.prop('disabled', true).find('.dashicons').removeClass('dashicons-saved').addClass('dashicons-update spin');
+                $status.text((sapmData.strings && sapmData.strings.saving) ? sapmData.strings.saving : 'Saving...').css('color', '#0073aa');
                 
                 var whitelist = [];
                 $('.sapm-updater-endpoint').each(function() {
                     var $item = $(this);
-                    // Use .attr() for consistency with toggle handler
                     var isWhitelisted = $item.attr('data-whitelisted') === '1';
                     if (isWhitelisted) {
                         whitelist.push($item.attr('data-endpoint'));
@@ -901,15 +1115,19 @@ class SAPM_Admin {
                 $.post(ajaxurl, data, function(response) {
                     if (response.success) {
                         $btn.find('.dashicons').removeClass('dashicons-update spin').addClass('dashicons-yes-alt');
+                        $status.text((sapmData.strings && sapmData.strings.saved) ? sapmData.strings.saved : 'Saved!').css('color', '#46b450');
                         setTimeout(function() {
                             $btn.find('.dashicons').removeClass('dashicons-yes-alt').addClass('dashicons-saved');
+                            $status.fadeOut(300, function() {
+                                $(this).text('').show();
+                            });
                         }, 2000);
                     } else {
                         var errMsg = (response.data && response.data.message) ? response.data.message : (typeof response.data === 'string' ? response.data : 'Unknown error');
-                        alert('Error: ' + errMsg);
+                        $status.text(errMsg).css('color', '#dc3232');
                     }
                 }).fail(function() {
-                    alert('Error while saving');
+                    $status.text('Error while saving').css('color', '#dc3232');
                 }).always(function() {
                     $btn.prop('disabled', false);
                     $btn.find('.dashicons').removeClass('spin');
@@ -918,7 +1136,9 @@ class SAPM_Admin {
 
             $('#sapm-uo-force-check').on('click', function() {
                 var $btn = $(this);
+                var $status = $('#sapm-uo-status');
                 $btn.prop('disabled', true).find('.dashicons').addClass('spin');
+                $status.text((sapmData.strings && sapmData.strings.loading) ? sapmData.strings.loading : 'Loading...').css('color', '#0073aa');
                 
                 $.post(ajaxurl, {
                     action: 'sapm_force_update_check',
@@ -929,119 +1149,38 @@ class SAPM_Admin {
                         var formatted = now.getDate() + '.' + (now.getMonth()+1) + '.' + now.getFullYear() + ' ' + 
                                       ('0'+now.getHours()).slice(-2) + ':' + ('0'+now.getMinutes()).slice(-2);
                         
-                        var lastCheckHtml = '<span style="color: #00a32a; font-weight: 600;">Just now</span><br>' +
-                                          '<small style="color: #666;">' + formatted + '</small>';
+                        var lastCheckHtml = '<strong>Just now</strong><br>' +
+                                          '<small>' + formatted + '</small>';
                         $('.sapm-last-check-value').html(lastCheckHtml);
                         
-                        var updatesText = response.data.plugin_count + ' plugins';
-                        if (response.data.theme_count && response.data.theme_count > 0) {
-                            updatesText += ' + ' + response.data.theme_count + ' themes';
-                        }
+                        var pluginCount = parseInt(response.data.plugin_count || 0, 10);
+                        var themeCount = parseInt(response.data.theme_count || 0, 10);
+                        var translationCount = parseInt(response.data.translation_count || 0, 10);
+                        var updatesText = pluginCount + ' <?php echo esc_js(__('plugins', 'sapm')); ?>'
+                            + ' + ' + themeCount + ' <?php echo esc_js(__('themes', 'sapm')); ?>'
+                            + ' + ' + translationCount + ' <?php echo esc_js(__('translations', 'sapm')); ?>';
                         $('.sapm-updates-count').text(updatesText);
-                        var color = response.data.plugin_count > 0 ? '#d63638' : '#00a32a';
-                        $('.sapm-updates-count').parent().css('color', color);
                         
                         $btn.find('.dashicons').removeClass('dashicons-update spin').addClass('dashicons-yes-alt');
-                        var $feedback = $('<div class="sapm-feedback-success" style="display:inline-block;margin-left:10px;color:#00a32a;font-weight:600;">✓ Check completed!</div>');
-                        $btn.after($feedback);
+                        $status.text((response.data && response.data.message) ? response.data.message : 'Check completed').css('color', '#46b450');
                         setTimeout(function() {
-                            $feedback.fadeOut(function() { $(this).remove(); });
                             $btn.find('.dashicons').removeClass('dashicons-yes-alt').addClass('dashicons-update');
+                            $status.fadeOut(300, function() {
+                                $(this).text('').show();
+                            });
                         }, 3000);
                     } else {
                         var errMsg = (response.data && response.data.message) ? response.data.message : (typeof response.data === 'string' ? response.data : 'Unknown error');
-                        alert('Error: ' + errMsg);
+                        $status.text(errMsg).css('color', '#dc3232');
                     }
                 }).fail(function() {
-                    alert('Error during check');
+                    $status.text('Error during check').css('color', '#dc3232');
                 }).always(function() {
                     $btn.prop('disabled', false).find('.dashicons').removeClass('spin');
                 });
             });
         });
         </script>
-        <style>
-        .dashicons.spin {
-            animation: sapm-spin 1s linear infinite;
-        }
-        @keyframes sapm-spin {
-            100% { transform: rotate(360deg); }
-        }
-        
-        /* Enhanced Badges */
-        .sapm-badge-success { 
-            background: linear-gradient(135deg, #00a32a 0%, #008a20 100%);
-            color: #fff;
-            padding: 3px 10px;
-            border-radius: 12px;
-            font-size: 11px;
-            font-weight: 600;
-            box-shadow: 0 2px 4px rgba(0,163,42,0.3);
-        }
-        .sapm-badge-warning { 
-            background: linear-gradient(135deg, #dba617 0%, #c99212 100%);
-            color: #fff;
-            padding: 3px 10px;
-            border-radius: 12px;
-            font-size: 11px;
-            font-weight: 600;
-            box-shadow: 0 2px 4px rgba(219,166,23,0.3);
-        }
-        
-        /* Enhanced Statistics Section */
-        .sapm-setting-row[style*="background: #f0f6fc"] {
-            background: linear-gradient(135deg, #f0f6fc 0%, #e7f2ff 100%) !important;
-            border: 1px solid #c5d9ed;
-        }
-        
-        /* Enhanced Strategy Radio Labels */
-        label[style*="border: 1px solid #ddd"] {
-            transition: all 0.3s ease;
-        }
-        
-        label[style*="background: #e7f3ff"] {
-            background: linear-gradient(135deg, #e7f3ff 0%, #d4e9ff 100%) !important;
-            box-shadow: 0 2px 6px rgba(34,113,177,0.15);
-        }
-        
-        /* Enhanced Buttons */
-        .button-primary {
-            background: linear-gradient(135deg, #2271b1 0%, #135e96 100%);
-            border-color: #135e96;
-            text-shadow: 0 1px 2px rgba(0,0,0,0.2);
-            box-shadow: 0 2px 6px rgba(34,113,177,0.3);
-            transition: all 0.3s ease;
-        }
-        
-        .button-primary:hover {
-            background: linear-gradient(135deg, #135e96 0%, #0f4c78 100%);
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(34,113,177,0.4);
-        }
-        
-        .button-primary:active {
-            transform: translateY(0);
-        }
-        
-        /* Enhanced Main Toggle */
-        .sapm-setting-row[style*="background: #f8f9fa"] {
-            background: linear-gradient(135deg, #f8f9fa 0%, #f0f1f3 100%) !important;
-            border: 2px solid #e0e3e7;
-            transition: all 0.3s ease;
-        }
-        
-        .sapm-setting-row[style*="background: #f8f9fa"]:hover {
-            border-color: #2271b1;
-            box-shadow: 0 2px 8px rgba(34,113,177,0.15);
-        }
-        
-        /* Enhanced Info Notice */
-        .sapm-notice.info {
-            background: linear-gradient(135deg, #f0f6fc 0%, #e7f2ff 100%);
-            border-left: 4px solid #2271b1;
-            box-shadow: 0 2px 6px rgba(34,113,177,0.1);
-        }
-        </style>
         <?php
     }
 
@@ -1431,21 +1570,6 @@ class SAPM_Admin {
             wp_send_json_error(['message' => 'Insufficient permissions'], 403);
         }
 
-        // DEBUG: Log active_plugins BEFORE any changes
-        global $wpdb;
-        $db_active = $wpdb->get_var("SELECT option_value FROM {$wpdb->options} WHERE option_name = 'active_plugins'");
-        $db_count_before = count(maybe_unserialize($db_active));
-        error_log("[SAPM DEBUG] ajax_apply_auto_rules START - DB active_plugins count: $db_count_before");
-        
-        // Add hook to detect any writes to active_plugins
-        add_filter('pre_update_option_active_plugins', function($value, $old_value, $option) {
-            $new_count = is_array($value) ? count($value) : 0;
-            $old_count = is_array($old_value) ? count($old_value) : 0;
-            error_log("[SAPM DEBUG] pre_update_option_active_plugins TRIGGERED! old=$old_count new=$new_count");
-            error_log("[SAPM DEBUG] Backtrace: " . wp_debug_backtrace_summary());
-            return $value;
-        }, 1, 3);
-
         // Get user-selected suggestions from JSON
         $suggestions_json = isset($_POST['suggestions']) ? wp_unslash($_POST['suggestions']) : '[]';
         $selected = json_decode($suggestions_json, true);
@@ -1552,30 +1676,20 @@ class SAPM_Admin {
 
         // Save updated rules if any changes
         if ($total_applied > 0) {
-            error_log("[SAPM DEBUG] About to save rules, total_applied=$total_applied");
             $this->core->save_request_type_rules($current_rules);
             
             // Save screen-based rules to main plugin rules option
             if (!empty($applied['screens'])) {
-                error_log("[SAPM DEBUG] About to update_option(SAPM_OPTION_KEY)");
                 update_option(SAPM_OPTION_KEY, $plugin_rules);
-                error_log("[SAPM DEBUG] After update_option(SAPM_OPTION_KEY)");
                 // Refresh core rules cache
                 $this->core->set_rules($plugin_rules);
             }
         }
         
-        // DEBUG: Log active_plugins AFTER all changes
-        global $wpdb;
-        $db_active_after = $wpdb->get_var("SELECT option_value FROM {$wpdb->options} WHERE option_name = 'active_plugins'");
-        $db_count_after = count(maybe_unserialize($db_active_after));
-        error_log("[SAPM DEBUG] ajax_apply_auto_rules END - DB active_plugins count: $db_count_after");
-        
         wp_send_json_success([
             'message' => sprintf(__('Aplikováno %d pravidel', 'sapm'), $total_applied),
             'applied' => $applied,
             'rules' => $this->core->get_request_type_rules(),
-            'debug' => ['db_count_before' => $db_count_before ?? 'unknown', 'db_count_after' => $db_count_after]
         ]);
     }
 
@@ -1642,11 +1756,27 @@ class SAPM_Admin {
 
         $optimizer = SAPM_Update_Optimizer::get_instance();
         
+        // Validate enum values
+        $strategy = sanitize_text_field($_POST['strategy'] ?? 'cron_only');
+        if (!in_array($strategy, ['ttl_extension', 'page_specific', 'cron_only'], true)) {
+            $strategy = 'cron_only';
+        }
+
+        $cron_interval = sanitize_text_field($_POST['cron_interval'] ?? 'twicedaily');
+        if (!in_array($cron_interval, ['hourly', 'twicedaily', 'daily'], true)) {
+            $cron_interval = 'twicedaily';
+        }
+
+        $ttl_hours = intval($_POST['ttl_hours'] ?? 24);
+        if (!in_array($ttl_hours, [12, 24, 48, 72], true)) {
+            $ttl_hours = 24;
+        }
+
         $config = [
             'enabled' => !empty($_POST['enabled']),
-            'strategy' => sanitize_text_field($_POST['strategy'] ?? 'cron_only'),
-            'ttl_hours' => intval($_POST['ttl_hours'] ?? 24),
-            'cron_interval' => sanitize_text_field($_POST['cron_interval'] ?? 'twicedaily'),
+            'strategy' => $strategy,
+            'ttl_hours' => $ttl_hours,
+            'cron_interval' => $cron_interval,
             'show_stale_indicator' => !empty($_POST['show_stale_indicator']),
         ];
         
@@ -1690,19 +1820,39 @@ class SAPM_Admin {
 
         $optimizer = SAPM_Update_Optimizer::get_instance();
         $result = $optimizer->force_update_check();
-        
-        // Get updated counts
-        $plugin_count = SAPM_Update_Optimizer::get_update_count();
-        
-        // Get theme count
-        $theme_transient = get_site_transient('update_themes');
-        $theme_count = $theme_transient ? count($theme_transient->response ?? []) : 0;
+        $breakdown = SAPM_Update_Optimizer::get_update_breakdown();
         
         wp_send_json_success([
             'message' => __('Check completed', 'sapm'),
-            'plugin_count' => $plugin_count,
-            'theme_count' => $theme_count,
+            'plugin_count' => $breakdown['plugins'],
+            'theme_count' => $breakdown['themes'],
+            'translation_count' => $breakdown['translations'],
+            'core_count' => $breakdown['core'],
+            'total_count' => $breakdown['total'],
             'result' => $result,
+        ]);
+    }
+
+    /**
+     * AJAX: Save Administration tab theme
+     */
+    public function ajax_save_admin_theme(): void {
+        check_ajax_referer('sapm_nonce', 'nonce');
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(['message' => 'Insufficient permissions'], 403);
+        }
+
+        $theme = sanitize_key($_POST['theme'] ?? '');
+        if (!in_array($theme, ['dark', 'light'], true)) {
+            wp_send_json_error(['message' => __('Invalid theme value', 'sapm')], 400);
+        }
+
+        update_option(self::ADMIN_THEME_OPTION, $theme, false);
+
+        wp_send_json_success([
+            'message' => __('Theme saved', 'sapm'),
+            'theme' => $theme,
         ]);
     }
 
@@ -1719,9 +1869,7 @@ class SAPM_Admin {
         $disabled = $this->core->get_disabled_this_request();
         $disabled_count = count($disabled);
 
-        $label = $disabled_count > 0
-            ? sprintf(__('%d pluginů vypnuto', 'sapm'), $disabled_count)
-            : __('Plugin Manager', 'sapm');
+        $label = __('⚡SAPM', 'sapm');
         $label = esc_html($label);
         $wp_admin_bar->add_node([
             'id' => 'sapm-info',
@@ -2993,5 +3141,505 @@ class SAPM_Admin {
         $target_query = $target_parts['query'] ?? '';
 
         return trim((string) $current_query) === trim((string) $target_query);
+    }
+
+    // ========================================
+    // Frontend Optimization - AJAX Handlers
+    // ========================================
+
+    /**
+     * AJAX: Save frontend settings
+     */
+    public function ajax_save_frontend_settings(): void {
+        check_ajax_referer('sapm_nonce', 'nonce');
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(['message' => __('Insufficient permissions', 'sapm')]);
+        }
+
+        $settings = [
+            'enabled' => !empty($_POST['enabled']),
+            'admin_bypass' => !empty($_POST['admin_bypass']),
+            'sampling_enabled' => !empty($_POST['sampling_enabled']),
+            'asset_audit' => !empty($_POST['asset_audit']),
+            'wc_protection' => !empty($_POST['wc_protection']),
+            'url_patterns' => $this->sanitize_json_input($_POST['url_patterns'] ?? '[]'),
+        ];
+
+        $frontend = SAPM_Frontend::init($this->core);
+        $result = $frontend->save_settings($settings);
+
+        if ($result) {
+            wp_send_json_success(['message' => __('Frontend settings saved', 'sapm')]);
+        } else {
+            wp_send_json_error(['message' => __('Error saving settings', 'sapm')]);
+        }
+    }
+
+    /**
+     * AJAX: Save frontend plugin rules per context
+     */
+    public function ajax_save_frontend_rules(): void {
+        check_ajax_referer('sapm_nonce', 'nonce');
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(['message' => __('Insufficient permissions', 'sapm')]);
+        }
+
+        $rules_raw = $_POST['rules'] ?? '';
+        $rules = json_decode(wp_unslash($rules_raw), true);
+
+        if (!is_array($rules)) {
+            wp_send_json_error(['message' => __('Invalid rules format', 'sapm')]);
+        }
+
+        // Sanitize rules
+        $clean_rules = [];
+        foreach ($rules as $context_id => $context_rules) {
+            $context_id = sanitize_key($context_id);
+            $clean_rules[$context_id] = [
+                '_mode' => sanitize_key($context_rules['_mode'] ?? 'passthrough'),
+                'disabled_plugins' => array_map('sanitize_text_field', $context_rules['disabled_plugins'] ?? []),
+                'enabled_plugins' => array_map('sanitize_text_field', $context_rules['enabled_plugins'] ?? []),
+            ];
+        }
+
+        $frontend = SAPM_Frontend::init($this->core);
+        $result = $frontend->save_rules($clean_rules);
+
+        if ($result) {
+            wp_send_json_success(['message' => __('Frontend rules saved', 'sapm')]);
+        } else {
+            wp_send_json_error(['message' => __('Error saving rules', 'sapm')]);
+        }
+    }
+
+    /**
+     * AJAX: Save frontend asset rules (CSS/JS dequeue)
+     */
+    public function ajax_save_frontend_asset_rules(): void {
+        check_ajax_referer('sapm_nonce', 'nonce');
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(['message' => __('Insufficient permissions', 'sapm')]);
+        }
+
+        $rules_raw = $_POST['rules'] ?? '';
+        $rules = json_decode(wp_unslash($rules_raw), true);
+
+        if (!is_array($rules)) {
+            wp_send_json_error(['message' => __('Invalid rules format', 'sapm')]);
+        }
+
+        // Sanitize asset rules
+        $clean_rules = [];
+        foreach ($rules as $context_id => $context_rules) {
+            $context_id = sanitize_key($context_id);
+            $clean_rules[$context_id] = [
+                'dequeue_scripts' => array_map('sanitize_key', $context_rules['dequeue_scripts'] ?? []),
+                'dequeue_styles' => array_map('sanitize_key', $context_rules['dequeue_styles'] ?? []),
+                'defer_scripts' => array_map('sanitize_key', $context_rules['defer_scripts'] ?? []),
+                'async_scripts' => array_map('sanitize_key', $context_rules['async_scripts'] ?? []),
+            ];
+        }
+
+        $frontend = SAPM_Frontend::init($this->core);
+        $result = $frontend->save_asset_rules($clean_rules);
+
+        if ($result) {
+            wp_send_json_success(['message' => __('Asset rules saved', 'sapm')]);
+        } else {
+            wp_send_json_error(['message' => __('Error saving asset rules', 'sapm')]);
+        }
+    }
+
+    /**
+     * AJAX: Get frontend asset audit data
+     */
+    public function ajax_get_frontend_asset_audit(): void {
+        check_ajax_referer('sapm_nonce', 'nonce');
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(['message' => __('Insufficient permissions', 'sapm')]);
+        }
+
+        $context = sanitize_key($_POST['context'] ?? '');
+        $frontend = SAPM_Frontend::init($this->core);
+
+        if ($context) {
+            $audit = $frontend->get_asset_audit($context);
+        } else {
+            $audit = $frontend->get_asset_audit();
+        }
+
+        wp_send_json_success([
+            'audit' => $audit,
+            'contexts' => array_keys($frontend->get_context_definitions()),
+        ]);
+    }
+
+    /**
+     * AJAX: Get frontend optimization suggestions
+     */
+    public function ajax_get_frontend_suggestions(): void {
+        check_ajax_referer('sapm_nonce', 'nonce');
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(['message' => __('Insufficient permissions', 'sapm')]);
+        }
+
+        $frontend = SAPM_Frontend::init($this->core);
+        $suggestions = $frontend->get_auto_suggestions();
+        $performance = $frontend->get_frontend_performance_summary();
+
+        wp_send_json_success([
+            'suggestions' => $suggestions,
+            'performance' => $performance,
+            'safe_mode_url' => $frontend->get_safe_mode_url(),
+        ]);
+    }
+
+    /**
+     * Helper: Sanitize JSON input from POST
+     */
+    private function sanitize_json_input(string $input): array {
+        $decoded = json_decode(wp_unslash($input), true);
+        return is_array($decoded) ? $decoded : [];
+    }
+
+    // ========================================
+    // Frontend Optimization - Settings Page Render
+    // ========================================
+
+    /**
+     * Render the frontend optimization tab content.
+     * Called from the main settings page renderer.
+     */
+    public function render_frontend_tab(): void {
+        $frontend = SAPM_Frontend::init($this->core);
+        $settings = $frontend->get_settings();
+        $rules = $frontend->get_rules();
+        $asset_rules = $frontend->get_asset_rules();
+        $contexts = $frontend->get_context_definitions();
+        $safe_mode_url = $frontend->get_safe_mode_url();
+
+        // Group contexts
+        $grouped = [];
+        foreach ($contexts as $id => $def) {
+            $group = $def['group'] ?? 'other';
+            $grouped[$group][$id] = $def;
+        }
+
+        // Get active plugins for the rule selectors
+        $all_plugins = get_plugins();
+        $active_plugins = get_option('active_plugins', []);
+
+        $group_labels = [
+            'woocommerce' => __('WooCommerce', 'sapm'),
+            'core'        => __('WordPress Core', 'sapm'),
+            'content'     => __('Content', 'sapm'),
+            'archive'     => __('Archives', 'sapm'),
+            'special'     => __('Special', 'sapm'),
+            'other'       => __('Other', 'sapm'),
+        ];
+
+        $group_icons = [
+            'woocommerce' => 'dashicons-cart',
+            'core'        => 'dashicons-wordpress',
+            'content'     => 'dashicons-admin-post',
+            'archive'     => 'dashicons-archive',
+            'special'     => 'dashicons-admin-tools',
+            'other'       => 'dashicons-admin-generic',
+        ];
+        ?>
+
+        <div class="sapm-notice info sapm-fe-intro-notice">
+            <strong><?php _e('💡 Tip:', 'sapm'); ?></strong>
+            <?php _e('Frontend Optimizer selectively loads plugins and CSS/JS assets per page type, significantly reducing load time for visitors. Start with "Passthrough" and gradually block unused plugins per context.', 'sapm'); ?>
+        </div>
+
+        <div class="sapm-screen-group sapm-fe-settings-group">
+            <div class="sapm-group-header">
+                <h3>
+                    <span class="dashicons dashicons-admin-settings"></span>
+                    <span class="sapm-group-title-text"><?php _e('Frontend Settings', 'sapm'); ?></span>
+                    <span class="dashicons dashicons-arrow-down-alt2 sapm-collapse-icon"></span>
+                </h3>
+            </div>
+            <div class="sapm-group-content">
+                <div class="sapm-screen-row">
+                    <div class="sapm-screen-name">
+                        <?php _e('Enable Frontend Filtering', 'sapm'); ?>
+                        <small><?php _e('When disabled, all plugins load normally on every frontend page.', 'sapm'); ?></small>
+                    </div>
+                    <div class="sapm-screen-plugins">
+                        <label class="sapm-rt-plugin-check <?php echo !empty($settings['enabled']) ? 'checked' : ''; ?>">
+                            <input type="checkbox" id="sapm-fe-enabled" <?php checked($settings['enabled']); ?>>
+                            <span class="check-box"></span>
+                            <span class="plugin-name"><?php _e('Enabled', 'sapm'); ?></span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="sapm-screen-row">
+                    <div class="sapm-screen-name">
+                        <?php _e('Safety', 'sapm'); ?>
+                    </div>
+                    <div class="sapm-screen-plugins">
+                        <label class="sapm-rt-plugin-check <?php echo !empty($settings['admin_bypass']) ? 'checked' : ''; ?>">
+                            <input type="checkbox" id="sapm-fe-admin-bypass" <?php checked($settings['admin_bypass']); ?>>
+                            <span class="check-box"></span>
+                            <span class="plugin-name"><?php _e('Admin Bypass', 'sapm'); ?></span>
+                        </label>
+                        <label class="sapm-rt-plugin-check <?php echo !empty($settings['wc_protection']) ? 'checked' : ''; ?>">
+                            <input type="checkbox" id="sapm-fe-wc-protection" <?php checked($settings['wc_protection']); ?>>
+                            <span class="check-box"></span>
+                            <span class="plugin-name"><?php _e('WooCommerce Protection', 'sapm'); ?></span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="sapm-screen-row">
+                    <div class="sapm-screen-name">
+                        <?php _e('Data Collection', 'sapm'); ?>
+                    </div>
+                    <div class="sapm-screen-plugins">
+                        <label class="sapm-rt-plugin-check <?php echo !empty($settings['sampling_enabled']) ? 'checked' : ''; ?>">
+                            <input type="checkbox" id="sapm-fe-sampling" <?php checked($settings['sampling_enabled']); ?>>
+                            <span class="check-box"></span>
+                            <span class="plugin-name"><?php _e('Performance Sampling', 'sapm'); ?></span>
+                        </label>
+                        <label class="sapm-rt-plugin-check <?php echo !empty($settings['asset_audit']) ? 'checked' : ''; ?>">
+                            <input type="checkbox" id="sapm-fe-asset-audit" <?php checked($settings['asset_audit']); ?>>
+                            <span class="check-box"></span>
+                            <span class="plugin-name"><?php _e('Asset Audit', 'sapm'); ?></span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="sapm-screen-row">
+                    <div class="sapm-screen-name">
+                        <?php _e('Emergency Recovery', 'sapm'); ?>
+                        <small><?php _e('Use this URL to bypass all frontend filtering in case of problems. Bookmark it!', 'sapm'); ?></small>
+                    </div>
+                    <div class="sapm-screen-plugins">
+                        <code id="sapm-fe-safe-url"><?php echo esc_html($safe_mode_url); ?></code>
+                    </div>
+                </div>
+
+                <div class="sapm-rt-footer-actions">
+                    <button type="button" class="button button-primary button-hero" id="sapm-fe-save-settings">
+                        <span class="dashicons dashicons-saved"></span>
+                        <?php _e('Save Frontend Settings', 'sapm'); ?>
+                    </button>
+                    <span id="sapm-fe-settings-status"></span>
+                </div>
+            </div>
+        </div>
+
+        <div class="sapm-screen-group sapm-fe-plugin-rules sapm-request-types" id="sapm-fe-request-types">
+            <div class="sapm-group-header">
+                <h3>
+                    <span class="dashicons dashicons-admin-plugins"></span>
+                    <span class="sapm-group-title-text"><?php _e('Plugin Rules per Page Type', 'sapm'); ?></span>
+                    <span class="dashicons dashicons-arrow-down-alt2 sapm-collapse-icon"></span>
+                </h3>
+            </div>
+            <div class="sapm-group-content">
+            <div class="sapm-rt-warning-box">
+                <div class="sapm-rt-warning-icon">
+                    <span class="dashicons dashicons-warning"></span>
+                </div>
+                <div class="sapm-rt-warning-content">
+                    <strong><?php _e('Frontend context rules', 'sapm'); ?></strong>
+                    <p><?php _e('Configure which plugins to load (whitelist) or block (blacklist) per frontend context. Default is Passthrough. Start gradually to avoid frontend breakage.', 'sapm'); ?></p>
+                </div>
+            </div>
+
+            <?php foreach ($grouped as $group => $group_contexts): ?>
+            <?php
+                $group_stats = [
+                    'enabled' => 0,
+                    'disabled' => 0,
+                ];
+
+                foreach ($group_contexts as $ctx_id => $ctx_def) {
+                    $ctx_rules = $rules[$ctx_id] ?? [];
+                    $ctx_mode = $ctx_rules['_mode'] ?? 'passthrough';
+                    if ($ctx_mode === 'blacklist') {
+                        $group_stats['disabled'] += count((array) ($ctx_rules['disabled_plugins'] ?? []));
+                    } elseif ($ctx_mode === 'whitelist') {
+                        $group_stats['enabled'] += count((array) ($ctx_rules['enabled_plugins'] ?? []));
+                    }
+                }
+            ?>
+            <div class="sapm-screen-group sapm-fe-context-group" data-group="<?php echo esc_attr($group); ?>">
+                <div class="sapm-group-header">
+                    <h3>
+                        <span class="dashicons <?php echo esc_attr($group_icons[$group] ?? 'dashicons-admin-generic'); ?>"></span>
+                        <span class="sapm-group-title-text"><?php echo esc_html($group_labels[$group] ?? ucfirst($group)); ?></span>
+                        <span class="sapm-group-header-stats" aria-live="polite" data-show-delay="0">
+                            <span class="sapm-group-stat is-block"><strong><?php echo (int) $group_stats['disabled']; ?></strong><em><?php esc_html_e('Block', 'sapm'); ?></em></span>
+                            <span class="sapm-group-stat is-allow"><strong><?php echo (int) $group_stats['enabled']; ?></strong><em><?php esc_html_e('Allow', 'sapm'); ?></em></span>
+                        </span>
+                        <span class="dashicons dashicons-arrow-down-alt2 sapm-collapse-icon"></span>
+                    </h3>
+                </div>
+                <div class="sapm-group-content">
+                <div class="sapm-rt-grid">
+                <?php foreach ($group_contexts as $ctx_id => $ctx_def):
+                    $ctx_rules = $rules[$ctx_id] ?? [];
+                    $ctx_mode = $ctx_rules['_mode'] ?? 'passthrough';
+                    $badge_class = 'mode-' . $ctx_mode;
+                    if ($ctx_mode === 'blacklist') {
+                        $badge_text = __('Blacklist', 'sapm');
+                    } elseif ($ctx_mode === 'whitelist') {
+                        $badge_text = __('Whitelist', 'sapm');
+                    } else {
+                        $badge_text = __('Passthrough', 'sapm');
+                    }
+                ?>
+                <details class="sapm-rt-card sapm-context-row" data-context="<?php echo esc_attr($ctx_id); ?>" data-mode="<?php echo esc_attr($ctx_mode); ?>"<?php echo $ctx_mode !== 'passthrough' ? ' open' : ''; ?>>
+                    <summary class="sapm-rt-card-header">
+                        <div class="sapm-rt-card-title">
+                            <div class="sapm-rt-icon-wrapper">
+                                <span class="dashicons dashicons-admin-site-alt3"></span>
+                            </div>
+                            <div class="sapm-rt-title-text">
+                                <strong><?php echo esc_html($ctx_def['label']); ?></strong>
+                                <?php if (!empty($ctx_def['desc'])): ?>
+                                    <span class="sapm-rt-desc"><?php echo esc_html($ctx_def['desc']); ?></span>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                        <div class="sapm-rt-header-meta">
+                            <span class="sapm-mode-pill <?php echo esc_attr($badge_class); ?>"><?php echo esc_html($badge_text); ?></span>
+                            <span class="dashicons dashicons-arrow-down-alt2 sapm-rt-toggle-icon"></span>
+                        </div>
+                    </summary>
+                    <div class="sapm-rt-card-body">
+                        <div class="sapm-rt-mode-selector sapm-fe-mode-selector">
+                            <label class="sapm-rt-radio-option sapm-fe-mode-option <?php echo $ctx_mode === 'passthrough' ? 'selected' : ''; ?>">
+                                <input type="radio" name="sapm_fe_mode_<?php echo esc_attr($ctx_id); ?>"
+                                       value="passthrough" <?php checked($ctx_mode, 'passthrough'); ?>
+                                       class="sapm-context-mode-radio" data-context="<?php echo esc_attr($ctx_id); ?>">
+                                <div class="sapm-rt-radio-visual">
+                                    <svg class="sapm-radio-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <circle cx="12" cy="12" r="10"></circle>
+                                        <path class="check" d="M8 12l3 3 5-5"></path>
+                                    </svg>
+                                </div>
+                                <div class="sapm-rt-radio-content">
+                                    <strong><?php _e('Passthrough', 'sapm'); ?></strong>
+                                    <span class="meta"><?php _e('Load all plugins', 'sapm'); ?></span>
+                                </div>
+                            </label>
+                            <label class="sapm-rt-radio-option sapm-fe-mode-option sapm-fe-mode-option-blacklist <?php echo $ctx_mode === 'blacklist' ? 'selected' : ''; ?>">
+                                <input type="radio" name="sapm_fe_mode_<?php echo esc_attr($ctx_id); ?>"
+                                       value="blacklist" <?php checked($ctx_mode, 'blacklist'); ?>
+                                       class="sapm-context-mode-radio" data-context="<?php echo esc_attr($ctx_id); ?>">
+                                <div class="sapm-rt-radio-visual">
+                                    <svg class="sapm-radio-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <circle cx="12" cy="12" r="10"></circle>
+                                        <path class="check" d="M8 12l3 3 5-5"></path>
+                                    </svg>
+                                </div>
+                                <div class="sapm-rt-radio-content">
+                                    <strong><?php _e('Blacklist', 'sapm'); ?></strong>
+                                    <span class="meta"><?php _e('Block selected plugins', 'sapm'); ?></span>
+                                </div>
+                            </label>
+                            <label class="sapm-rt-radio-option sapm-fe-mode-option sapm-fe-mode-option-whitelist <?php echo $ctx_mode === 'whitelist' ? 'selected' : ''; ?>">
+                                <input type="radio" name="sapm_fe_mode_<?php echo esc_attr($ctx_id); ?>"
+                                       value="whitelist" <?php checked($ctx_mode, 'whitelist'); ?>
+                                       class="sapm-context-mode-radio" data-context="<?php echo esc_attr($ctx_id); ?>">
+                                <div class="sapm-rt-radio-visual">
+                                    <svg class="sapm-radio-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <circle cx="12" cy="12" r="10"></circle>
+                                        <path class="check" d="M8 12l3 3 5-5"></path>
+                                    </svg>
+                                </div>
+                                <div class="sapm-rt-radio-content">
+                                    <strong><?php _e('Whitelist', 'sapm'); ?></strong>
+                                    <span class="meta"><?php _e('Allow selected plugins only', 'sapm'); ?></span>
+                                </div>
+                            </label>
+                        </div>
+                        <div class="sapm-rt-config-area">
+                            <div class="sapm-rt-config-header danger sapm-context-config-header sapm-context-config-blacklist" style="display: <?php echo $ctx_mode === 'blacklist' ? 'flex' : 'none'; ?>;">
+                                <span class="dashicons dashicons-no-alt"></span>
+                                <?php _e('Select plugins to BLOCK:', 'sapm'); ?>
+                            </div>
+                            <div class="sapm-rt-config-header success sapm-context-config-header sapm-context-config-whitelist" style="display: <?php echo $ctx_mode === 'whitelist' ? 'flex' : 'none'; ?>;">
+                                <span class="dashicons dashicons-yes-alt"></span>
+                                <?php _e('Select plugins to ALLOW:', 'sapm'); ?>
+                            </div>
+                            <div class="sapm-context-plugins sapm-screen-plugins" style="display:<?php echo $ctx_mode !== 'passthrough' ? 'flex' : 'none'; ?>">
+                                <?php foreach ($active_plugins as $plugin_file):
+                                    $plugin_data = $all_plugins[$plugin_file] ?? [];
+                                    $plugin_name = $plugin_data['Name'] ?? $plugin_file;
+                                    $is_disabled = in_array($plugin_file, $ctx_rules['disabled_plugins'] ?? [], true);
+                                    $is_enabled = in_array($plugin_file, $ctx_rules['enabled_plugins'] ?? [], true);
+                                    $tag_state = 'default';
+                                    if ($ctx_mode === 'blacklist' && $is_disabled) {
+                                        $tag_state = 'disabled';
+                                    } elseif ($ctx_mode === 'whitelist' && $is_enabled) {
+                                        $tag_state = 'enabled';
+                                    }
+                                    $icon = $tag_state === 'enabled' ? 'yes' : ($tag_state === 'disabled' ? 'no' : 'minus');
+                                ?>
+                                <span class="sapm-plugin-tag <?php echo esc_attr($tag_state); ?>"
+                                      data-plugin="<?php echo esc_attr($plugin_file); ?>"
+                                      data-state="<?php echo esc_attr($tag_state); ?>"
+                                      title="<?php echo esc_attr($plugin_file); ?>">
+                                    <span class="dashicons dashicons-<?php echo esc_attr($icon); ?>"></span>
+                                    <?php echo esc_html($plugin_name); ?>
+                                </span>
+                                <?php endforeach; ?>
+                            </div>
+                        </div>
+                    </div>
+                </details>
+                <?php endforeach; ?>
+                </div>
+                </div>
+            </div>
+            <?php endforeach; ?>
+
+            <div class="sapm-rt-footer-actions">
+                <button type="button" class="button button-primary button-hero" id="sapm-fe-save-rules">
+                    <span class="dashicons dashicons-saved"></span>
+                    <?php _e('Save Plugin Rules', 'sapm'); ?>
+                </button>
+                <span id="sapm-fe-rules-status"></span>
+            </div>
+            </div>
+        </div>
+
+        <div class="sapm-screen-group sapm-fe-asset-manager">
+            <div class="sapm-group-header">
+                <h3>
+                    <span class="dashicons dashicons-editor-code"></span>
+                    <span class="sapm-group-title-text"><?php _e('Asset Manager (CSS/JS)', 'sapm'); ?></span>
+                    <span class="dashicons dashicons-arrow-down-alt2 sapm-collapse-icon"></span>
+                </h3>
+            </div>
+            <div class="sapm-group-content">
+            <p>
+                <?php _e('Dequeue unnecessary CSS/JS files per page type. Enable Asset Audit first to discover which assets are loaded.', 'sapm'); ?>
+            </p>
+
+            <div id="sapm-fe-asset-audit-results">
+                <div class="sapm-rt-perf-actions">
+                    <button type="button" class="button button-secondary" id="sapm-fe-load-audit">
+                        <span class="dashicons dashicons-update"></span>
+                        <?php _e('Load Asset Audit Data', 'sapm'); ?>
+                    </button>
+                </div>
+                <div id="sapm-fe-audit-content"></div>
+            </div>
+            </div>
+        </div>
+        <?php
     }
 }

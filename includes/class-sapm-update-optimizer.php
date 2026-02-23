@@ -171,6 +171,11 @@ class SAPM_Update_Optimizer {
         // This handles cases where admin logs in after long period of inactivity
         if (is_admin() && !wp_doing_ajax() && !wp_doing_cron()) {
             add_action('admin_init', [$this, 'maybe_refresh_stale_transient'], 5);
+            
+            // Force check on plugins page if configured
+            if ($this->config['force_check_on_plugins_page'] ?? false) {
+                add_action('admin_init', [$this, 'check_allowed_page'], 1);
+            }
         }
     }
     
@@ -478,8 +483,9 @@ class SAPM_Update_Optimizer {
         // Get configured TTL
         $ttl_hours = $this->config['ttl_hours'] ?? self::DEFAULTS['ttl_hours'];
         
-        // Calculate new check time
-        $new_check_time = time() + ($ttl_hours * HOUR_IN_SECONDS);
+        // Calculate new check time — trick WordPress into thinking the check
+        // happened recently so it won't issue a new HTTP check until TTL expires.
+        $new_check_time = time() + ($ttl_hours * HOUR_IN_SECONDS) - (12 * HOUR_IN_SECONDS);
         
         // WordPress uses 'last_checked' property
         if (isset($transient->last_checked)) {
@@ -490,6 +496,8 @@ class SAPM_Update_Optimizer {
             if (!isset($transient->sapm_extended)) {
                 $transient->sapm_extended = true;
                 $transient->sapm_original_check = $original_last_checked;
+                // Apply the extended TTL
+                $transient->last_checked = $new_check_time;
             }
         }
 
@@ -564,7 +572,7 @@ class SAPM_Update_Optimizer {
             '<span class="sapm-update-indicator" style="color: #666; font-style: italic;">%s</span>',
             sprintf(
                 /* translators: %s: hours ago */
-                esc_html__('Updates checked %s hours ago', 'smart-admin-plugin-manager'),
+                esc_html__('Updates checked %s hours ago', 'sapm'),
                 number_format($hours_ago, 1)
             )
         );
@@ -575,7 +583,7 @@ class SAPM_Update_Optimizer {
             $message .= sprintf(
                 ' | <a href="%s">%s</a>',
                 esc_url($refresh_url),
-                esc_html__('Check now', 'smart-admin-plugin-manager')
+                esc_html__('Check now', 'sapm')
             );
         }
 
@@ -674,6 +682,7 @@ class SAPM_Update_Optimizer {
     public function get_stats(): array {
         $transient = get_site_transient('update_plugins');
         $theme_transient = get_site_transient('update_themes');
+        $breakdown = self::get_update_breakdown();
         $next_cron = wp_next_scheduled('sapm_cron_update_check');
         $last_cron = get_option('sapm_last_cron_update_check', 0);
         
@@ -682,8 +691,10 @@ class SAPM_Update_Optimizer {
             'strategy' => $this->config['strategy'] ?? 'unknown',
             'blocked_this_request' => count($this->blocked_requests),
             'blocked_details' => $this->blocked_requests,
-            'plugin_updates_cached' => $transient ? count($transient->response ?? []) : 0,
-            'theme_updates_cached' => $theme_transient ? count($theme_transient->response ?? []) : 0,
+            'plugin_updates_cached' => $breakdown['plugins'],
+            'theme_updates_cached' => $breakdown['themes'],
+            'translation_updates_cached' => $breakdown['translations'],
+            'core_updates_cached' => $breakdown['core'],
             'last_plugin_check' => $transient->last_checked ?? null,
             'last_theme_check' => $theme_transient->last_checked ?? null,
             'last_cron_check' => $last_cron,
@@ -732,30 +743,69 @@ class SAPM_Update_Optimizer {
      * This is what the admin menu uses
      */
     public static function get_update_count(): int {
-        $count = 0;
-        
-        // Plugin updates
+        $breakdown = self::get_update_breakdown();
+
+        return $breakdown['total'];
+    }
+
+    /**
+     * Get detailed breakdown of available updates from cached site transients.
+     *
+     * @return array{plugins:int,themes:int,core:int,translations:int,total:int,total_with_translations:int}
+     */
+    public static function get_update_breakdown(): array {
         $plugin_transient = get_site_transient('update_plugins');
-        if ($plugin_transient && isset($plugin_transient->response)) {
-            $count += count($plugin_transient->response);
-        }
-        
-        // Theme updates
         $theme_transient = get_site_transient('update_themes');
-        if ($theme_transient && isset($theme_transient->response)) {
-            $count += count($theme_transient->response);
-        }
-        
-        // Core updates
         $core_transient = get_site_transient('update_core');
-        if ($core_transient && isset($core_transient->updates)) {
-            foreach ($core_transient->updates as $update) {
-                if ($update->response === 'upgrade') {
-                    $count++;
-                }
+
+        $plugins = self::count_transient_items($plugin_transient, 'response');
+        $themes = self::count_transient_items($theme_transient, 'response');
+        $translations = self::count_transient_items($plugin_transient, 'translations')
+            + self::count_transient_items($theme_transient, 'translations')
+            + self::count_transient_items($core_transient, 'translations');
+        $core = self::count_core_updates($core_transient);
+        $total = $plugins + $themes + $core;
+
+        return [
+            'plugins' => $plugins,
+            'themes' => $themes,
+            'core' => $core,
+            'translations' => $translations,
+            'total' => $total,
+            'total_with_translations' => $total + $translations,
+        ];
+    }
+
+    /**
+     * Count array items in a transient object property.
+     */
+    private static function count_transient_items($transient, string $property): int {
+        if (!is_object($transient) || !isset($transient->{$property}) || !is_array($transient->{$property})) {
+            return 0;
+        }
+
+        return count($transient->{$property});
+    }
+
+    /**
+     * Count available core updates from update_core transient.
+     */
+    private static function count_core_updates($core_transient): int {
+        if (!is_object($core_transient) || !isset($core_transient->updates) || !is_array($core_transient->updates)) {
+            return 0;
+        }
+
+        $count = 0;
+        foreach ($core_transient->updates as $update) {
+            $response = is_object($update)
+                ? ($update->response ?? null)
+                : (is_array($update) ? ($update['response'] ?? null) : null);
+
+            if ($response === 'upgrade') {
+                $count++;
             }
         }
-        
+
         return $count;
     }
 
@@ -764,19 +814,11 @@ class SAPM_Update_Optimizer {
      * Returns: [endpoint => display_name]
      */
     public static function get_known_plugin_updaters(): array {
-        return [
-            'api.zizicache.com' => 'ZiziCache',
-            'translations.duplicator.com' => 'Duplicator Pro',
-            'developer.flavor.dev' => 'FlyingPress',
-            'flavor.dev' => 'FlyingPress (alt)',
-            'public-api.wordpress.com/wpcom/v2/wcpay' => 'WooCommerce Payments',
-            'my.elementor.com' => 'Elementor Pro',
-            'developer.flavor.dev/perfmatters' => 'Perfmatters',
-            'developer.flavor.dev/wpgrid' => 'WP Grid Builder',
-            'developer.flavor.dev/metabox' => 'Meta Box',
-            'developer.flavor.dev/generateblocks' => 'GenerateBlocks',
-            'developer.flavor.dev/generatepress' => 'GeneratePress',
-        ];
+        // Derive from the canonical mapping to avoid duplicate maintenance
+        return array_map(
+            fn(array $info): string => $info['name'],
+            self::get_known_plugin_updaters_with_mapping()
+        );
     }
 
     /**
@@ -893,5 +935,7 @@ class SAPM_Update_Optimizer {
     }
 }
 
-// Initialize on plugins_loaded (after SAPM Core)
-add_action('plugins_loaded', ['SAPM_Update_Optimizer', 'init'], 0);
+// Initialize on plugins_loaded (after SAPM Core) — only in admin/cron context
+if (is_admin() || wp_doing_cron() || (defined('WP_CLI') && WP_CLI)) {
+    add_action('plugins_loaded', ['SAPM_Update_Optimizer', 'init'], 0);
+}

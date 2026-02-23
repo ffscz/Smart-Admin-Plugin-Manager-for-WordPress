@@ -191,20 +191,20 @@ class SAPM_Database {
                 if (empty($blockable_types)) {
                     return [
                         'safe' => false, 
-                        'reason' => sprintf(__('Plugin "%s" is critical and should not be blocked', 'smart-admin-plugin-manager'), $pattern)
+                        'reason' => sprintf(__('Plugin "%s" is critical and should not be blocked', 'sapm'), $pattern)
                     ];
                 }
                 // If request_type is in blockable_types, it's safe to block
                 if (in_array($request_type, $blockable_types, true)) {
                     return [
                         'safe' => true,
-                        'reason' => sprintf(__('Plugin "%s" does not need to run for %s requests', 'smart-admin-plugin-manager'), $pattern, strtoupper($request_type))
+                        'reason' => sprintf(__('Plugin "%s" does not need to run for %s requests', 'sapm'), $pattern, strtoupper($request_type))
                     ];
                 }
                 // Otherwise, don't block
                 return [
                     'safe' => false,
-                    'reason' => sprintf(__('Plugin "%s" needs to run for %s requests', 'smart-admin-plugin-manager'), $pattern, strtoupper($request_type))
+                    'reason' => sprintf(__('Plugin "%s" needs to run for %s requests', 'sapm'), $pattern, strtoupper($request_type))
                 ];
             }
         }
@@ -215,7 +215,7 @@ class SAPM_Database {
                 if (in_array($request_type, $safe_request_types, true)) {
                     return [
                         'safe' => true,
-                        'reason' => sprintf(__('Plugin "%s" is typically frontend-only and can be safely blocked for %s', 'smart-admin-plugin-manager'), $pattern, strtoupper($request_type))
+                        'reason' => sprintf(__('Plugin "%s" is typically frontend-only and can be safely blocked for %s', 'sapm'), $pattern, strtoupper($request_type))
                     ];
                 }
             }
@@ -231,6 +231,20 @@ class SAPM_Database {
     public static function get_table_name(): string {
         global $wpdb;
         return $wpdb->prefix . self::$table_name;
+    }
+
+    /**
+     * Get table identifier sanitized for raw SQL identifier contexts.
+     */
+    private static function get_safe_table_identifier(): string {
+        $table_name = self::get_table_name();
+        $safe_table_name = preg_replace('/[^A-Za-z0-9_]/', '', (string) $table_name);
+
+        if (!is_string($safe_table_name) || $safe_table_name === '') {
+            return self::$table_name;
+        }
+
+        return $safe_table_name;
     }
 
     /**
@@ -279,8 +293,8 @@ class SAPM_Database {
      */
     public static function drop_tables(): void {
         global $wpdb;
-        $table_name = self::get_table_name();
-        $wpdb->query("DROP TABLE IF EXISTS {$table_name}");
+        $table_name = self::get_safe_table_identifier();
+        $wpdb->query("DROP TABLE IF EXISTS `{$table_name}`");
         delete_option('sapm_db_version');
         self::reset_cache();
     }
@@ -298,7 +312,8 @@ class SAPM_Database {
 
         global $wpdb;
         $table_name = self::get_table_name();
-        $result = $wpdb->get_var("SHOW TABLES LIKE '{$table_name}'");
+        $table_like = $wpdb->esc_like($table_name);
+        $result = $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $table_like));
         self::$tables_exist_cache = ($result === $table_name);
         
         return self::$tables_exist_cache;
@@ -629,11 +644,12 @@ class SAPM_Database {
         $newest = $wpdb->get_var("SELECT MAX(last_sample) FROM `{$table_name}`");
 
         // Table size
-        $size_result = $wpdb->get_row(
+        $size_result = $wpdb->get_row($wpdb->prepare(
             "SELECT ROUND((DATA_LENGTH + INDEX_LENGTH) / 1024, 2) AS size_kb 
              FROM information_schema.TABLES 
-             WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '{$table_name}'"
-        );
+             WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = %s",
+            $table_name
+        ));
         $table_size = $size_result ? floatval($size_result->size_kb) : 0;
 
         return [
@@ -716,6 +732,45 @@ class SAPM_Database {
         uasort($summary, fn($a, $b) => $b['overall_avg_ms'] <=> $a['overall_avg_ms']);
 
         return array_values($summary);
+    }
+
+    /**
+     * Get summary of sampling data for a specific request type, grouped by trigger.
+     * 
+     * @param string $request_type Request type (e.g., 'frontend', 'ajax', 'rest')
+     * @return array [trigger_name => ['plugins' => [plugin => ['avg_load_ms' => float, 'avg_queries' => float, 'samples' => int]]]]
+     */
+    public static function get_request_type_summary(string $request_type): array {
+        global $wpdb;
+
+        if (!self::tables_exist()) {
+            return [];
+        }
+
+        $table_name = self::get_table_name();
+
+        $results = $wpdb->get_results($wpdb->prepare(
+            "SELECT trigger_name, plugin_file, sample_count, avg_ms, avg_queries
+             FROM `{$table_name}`
+             WHERE request_type = %s
+             ORDER BY trigger_name, avg_ms DESC",
+            $request_type
+        ), ARRAY_A);
+
+        $summary = [];
+        foreach ($results as $row) {
+            $trigger = $row['trigger_name'];
+            if (!isset($summary[$trigger])) {
+                $summary[$trigger] = ['plugins' => []];
+            }
+            $summary[$trigger]['plugins'][$row['plugin_file']] = [
+                'avg_load_ms' => round(floatval($row['avg_ms']), 2),
+                'avg_queries' => round(floatval($row['avg_queries']), 2),
+                'samples' => intval($row['sample_count']),
+            ];
+        }
+
+        return $summary;
     }
 
     /**
@@ -811,7 +866,7 @@ class SAPM_Database {
                             'plugin' => $plugin,
                             'confidence' => 0.90, // High confidence for known patterns
                             'reason' => $safe_check['reason'] ?? sprintf(
-                                __('Plugin can be safely blocked for %s requests (savings: %.1fms)', 'smart-admin-plugin-manager'),
+                                __('Plugin can be safely blocked for %s requests (savings: %.1fms)', 'sapm'),
                                 strtoupper($rt),
                                 $avg_ms
                             ),
@@ -839,7 +894,7 @@ class SAPM_Database {
                             'plugin' => $plugin,
                             'confidence' => round($confidence, 2),
                             'reason' => sprintf(
-                                __('Plugin has %.1fms average load time, but appears in only %d%% of %s triggers', 'smart-admin-plugin-manager'),
+                                __('Plugin has %.1fms average load time, but appears in only %d%% of %s triggers', 'sapm'),
                                 $avg_ms,
                                 round($presence_ratio * 100),
                                 $rt
@@ -863,7 +918,7 @@ class SAPM_Database {
                             'plugin' => $plugin,
                             'confidence' => round($confidence, 2),
                             'reason' => sprintf(
-                                __('Plugin has %.1fms average load time (%.1f× more than average %.1fms) - optimization candidate', 'smart-admin-plugin-manager'),
+                                __('Plugin has %.1fms average load time (%.1f× more than average %.1fms) - optimization candidate', 'sapm'),
                                 $avg_ms,
                                 round($weight_factor, 1),
                                 round($global_avg_ms, 1)
@@ -887,7 +942,7 @@ class SAPM_Database {
                         'plugin' => $plugin,
                         'confidence' => round($confidence, 2),
                         'reason' => sprintf(
-                            __('Plugin appears in %d%% of %s triggers and has minimal load (%.1fms) - likely needed', 'smart-admin-plugin-manager'),
+                            __('Plugin appears in %d%% of %s triggers and has minimal load (%.1fms) - likely needed', 'sapm'),
                             round($presence_ratio * 100),
                             $rt,
                             $avg_ms
@@ -1015,7 +1070,7 @@ class SAPM_Database {
                             'plugin' => $plugin,
                             'confidence' => round($confidence, 2),
                             'reason' => sprintf(
-                                __('Plugin has %.1fms load on this screen and is only needed on %d%% of screens', 'smart-admin-plugin-manager'),
+                                __('Plugin has %.1fms load on this screen and is only needed on %d%% of screens', 'sapm'),
                                 $avg_ms,
                                 round($presence_ratio * 100)
                             ),
@@ -1036,7 +1091,7 @@ class SAPM_Database {
                             'plugin' => $plugin,
                             'confidence' => round($confidence, 2),
                             'reason' => sprintf(
-                                __('Plugin has %.1fms load (%.1f× more than average) - consider deferring loading', 'smart-admin-plugin-manager'),
+                                __('Plugin has %.1fms load (%.1f× more than average) - consider deferring loading', 'sapm'),
                                 $avg_ms,
                                 round($weight_factor, 1)
                             ),
@@ -1059,7 +1114,7 @@ class SAPM_Database {
                                 'plugin' => $plugin,
                                 'confidence' => round($confidence, 2),
                                 'reason' => sprintf(
-                                    __('Plugin is probably not needed on this screen (%.1fms load)', 'smart-admin-plugin-manager'),
+                                    __('Plugin is probably not needed on this screen (%.1fms load)', 'sapm'),
                                     $avg_ms
                                 ),
                                 'savings_ms' => round($avg_ms, 2),
@@ -1213,34 +1268,34 @@ class SAPM_Database {
      */
     public static function get_screen_label(string $screen_id): string {
         $labels = [
-            'dashboard' => __('Dashboard', 'smart-admin-plugin-manager'),
-            'edit-post' => __('Posts (List)', 'smart-admin-plugin-manager'),
-            'post' => __('Post Editor', 'smart-admin-plugin-manager'),
-            'edit-page' => __('Pages (List)', 'smart-admin-plugin-manager'),
-            'page' => __('Page Editor', 'smart-admin-plugin-manager'),
-            'upload' => __('Media', 'smart-admin-plugin-manager'),
-            'edit-comments' => __('Comments', 'smart-admin-plugin-manager'),
-            'themes' => __('Appearance - Themes', 'smart-admin-plugin-manager'),
-            'customize' => __('Customizer', 'smart-admin-plugin-manager'),
-            'widgets' => __('Widgets', 'smart-admin-plugin-manager'),
-            'nav-menus' => __('Menu', 'smart-admin-plugin-manager'),
-            'plugins' => __('Plugins', 'smart-admin-plugin-manager'),
-            'users' => __('Users', 'smart-admin-plugin-manager'),
-            'profile' => __('Profile', 'smart-admin-plugin-manager'),
-            'tools' => __('Tools', 'smart-admin-plugin-manager'),
-            'options-general' => __('Settings - General', 'smart-admin-plugin-manager'),
-            'options-writing' => __('Settings - Writing', 'smart-admin-plugin-manager'),
-            'options-reading' => __('Settings - Reading', 'smart-admin-plugin-manager'),
-            'options-discussion' => __('Settings - Discussion', 'smart-admin-plugin-manager'),
-            'options-media' => __('Settings - Media', 'smart-admin-plugin-manager'),
-            'options-permalink' => __('Settings - Permalinks', 'smart-admin-plugin-manager'),
+            'dashboard' => __('Dashboard', 'sapm'),
+            'edit-post' => __('Posts (List)', 'sapm'),
+            'post' => __('Post Editor', 'sapm'),
+            'edit-page' => __('Pages (List)', 'sapm'),
+            'page' => __('Page Editor', 'sapm'),
+            'upload' => __('Media', 'sapm'),
+            'edit-comments' => __('Comments', 'sapm'),
+            'themes' => __('Appearance - Themes', 'sapm'),
+            'customize' => __('Customizer', 'sapm'),
+            'widgets' => __('Widgets', 'sapm'),
+            'nav-menus' => __('Menu', 'sapm'),
+            'plugins' => __('Plugins', 'sapm'),
+            'users' => __('Users', 'sapm'),
+            'profile' => __('Profile', 'sapm'),
+            'tools' => __('Tools', 'sapm'),
+            'options-general' => __('Settings - General', 'sapm'),
+            'options-writing' => __('Settings - Writing', 'sapm'),
+            'options-reading' => __('Settings - Reading', 'sapm'),
+            'options-discussion' => __('Settings - Discussion', 'sapm'),
+            'options-media' => __('Settings - Media', 'sapm'),
+            'options-permalink' => __('Settings - Permalinks', 'sapm'),
         ];
         
         // Check for custom post type screens
         if (strpos($screen_id, 'edit-') === 0) {
             $post_type = substr($screen_id, 5);
             if (!isset($labels[$screen_id])) {
-                return sprintf(__('List: %s', 'smart-admin-plugin-manager'), $post_type);
+                return sprintf(__('List: %s', 'sapm'), $post_type);
             }
         }
         
