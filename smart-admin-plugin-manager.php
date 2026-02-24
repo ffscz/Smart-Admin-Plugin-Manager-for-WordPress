@@ -3,7 +3,7 @@
  * Plugin Name: Smart Admin Plugin Manager
  * Plugin URI: https://ffs.cz
  * Description: Plugin loading management in WordPress admin - per screen control.
- * Version: 1.3.1
+ * Version: 1.3.2
  * Requires at least: 6.0
  * Requires PHP: 7.4
  * Author: FFS.cz
@@ -22,7 +22,7 @@ define('SAPM_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('SAPM_PLUGIN_URL', plugin_dir_url(__FILE__));
 
 if (!defined('SAPM_VERSION')) {
-    define('SAPM_VERSION', '1.3.1');
+    define('SAPM_VERSION', '1.3.2');
 }
 if (!defined('SAPM_OPTION_KEY')) {
     define('SAPM_OPTION_KEY', 'sapm_plugin_rules');

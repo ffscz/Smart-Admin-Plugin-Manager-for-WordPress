@@ -11,6 +11,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [![License](https://img.shields.io/badge/License-GPLv2-green.svg)](https://www.gnu.org/licenses/gpl-2.0.html)
 [![Status](https://img.shields.io/badge/Status-Stable-brightgreen.svg)](https://github.com/ffscz/Smart-Admin-Plugin-Manager-for-WordPress)
 
+## [1.3.2] - 2026-02-23
+
+### Changed
+- Frontend filtering now normalizes unsupported mode values to a safe fallback (`passthrough`) instead of relying on implicit branch behavior.
+- Frontend/admin rule input handling was tightened for safer plugin basename processing and more predictable persistence.
+
+### Fixed
+- Self-protection guard now uses the main plugin basename, preventing accidental self-filtering/self-deactivation during plugin list filtering.
+- Frontend drawer reload action now works reliably after sanitized dynamic rendering.
+
+### Security
+- Hardened frontend/admin rule sanitization for mode and plugin basename inputs.
+- Replaced fragile suppressed regex validation path with explicit safe regex validation helpers.
+
+### Performance
+- Frontend asset versioning switched from per-request timestamp busting to deterministic `version + filemtime` strategy.
+- Optimized auto-rules generation by removing expensive per-plugin/per-type correlated trigger query.
+- Reduced DB query attribution overhead by lowering trace depth and caching plugin directory resolution.
+
+### Docs
+- Updated release metadata and compatibility notes for version `1.3.2`.
+
+### Breaking Changes
+- None. Backward-compatible maintenance and hardening release.
+
 ## [1.3.1] - 2026-02-23
 
 ### Fixed
@@ -181,6 +206,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 | SAPM Version | WordPress | PHP     | Tested With |
 |--------------|-----------|---------|-------------|
+| 1.3.2        | 6.0+      | 7.4+    | 6.8.3       |
 | 1.3.1        | 6.0+      | 7.4+    | 6.8.3       |
 | 1.3.0        | 6.0+      | 7.4+    | 6.8.3       |
 | 1.2.0        | 6.0+      | 7.4+    | 6.8.3       |
@@ -188,6 +214,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 | 1.0.0        | 6.0+      | 7.4+    | 6.2.0       |
 
 ## Migration Guide
+
+### From 1.3.1 to 1.3.2
+
+**Automatic Migration:**
+- No schema or settings migration required
+- Existing rules/options remain fully compatible
+- Runtime behavior is stricter and safer for invalid frontend mode values
+
+**Manual Steps (GitHub Release Delivery):**
+1. Publish `smart-admin-plugin-manager.zip` and matching `smart-admin-plugin-manager.sha256`
+2. Keep release tag in semver form (`v1.3.2`) and release as non-draft/non-prerelease
+
+**Breaking Changes:**
+- None - maintenance/hardening release only
 
 ### From 1.3.0 to 1.3.1
 

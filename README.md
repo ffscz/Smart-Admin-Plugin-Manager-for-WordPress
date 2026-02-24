@@ -13,7 +13,7 @@ Smart Admin Plugin Manager (SAPM) is an advanced WordPress plugin that optimizes
 
 The plugin operates at the core WordPress level using MU-plugins mechanism, intercepting the plugin loading process before WordPress initialization completes. This allows for dramatic performance improvements by preventing heavy plugins from loading on screens where they are not needed.
 
-**Current Version:** 1.3.0  
+**Current Version:** 1.3.2  
 **Status:** Active Development  
 **Minimum Requirements:** WordPress 6.0+, PHP 7.4+
 
@@ -86,6 +86,12 @@ The plugin operates at the core WordPress level using MU-plugins mechanism, inte
 - **Admin Screen Sampling:** 100% sampling for admin screens
 - **Request Type Sampling:** 10% sampling for AJAX/REST/Cron/CLI
 - **Real-time Dashboard:** Visual performance reports
+
+#### 6. Frontend Optimizer (Public Pages)
+- **Per-Context Filtering Modes:** `Passthrough`, `Blacklist`, `Whitelist` for frontend contexts (WooCommerce, core pages, content, archives, special).
+- **Per-Page Overrides:** Optional post/term-level overrides from the frontend drawer for one specific page or taxonomy term.
+- **Asset Manager:** Per-context CSS/JS dequeue rules with optional script `defer` / `async` attributes.
+- **Safety Controls:** Admin Bypass, WooCommerce critical-page protection, and one-click Safe Mode recovery URL.
 
 ### Developer Tools
 
@@ -413,14 +419,14 @@ Plugin Updater Blocking: All known updaters blocked except security plugins
 
 ### Known Limitations
 
-- **No Frontend Optimization:** Only works in admin area
+- **Frontend Optimization is optional:** Frontend filtering exists, but is disabled by default (`Passthrough`) until explicitly configured.
 - **Active Plugins Only:** Cannot control inactive plugins
 - **No Network Activation:** (Multisite requires per-site activation)
 - **Database Overhead:** Sampling data can grow (auto-cleanup after 30 days)
 
 ## Development Status
 
-**Current Version:** 1.3.0 (Beta)
+**Current Version:** 1.3.2
 
 ### Status: Active Development
 
@@ -447,38 +453,14 @@ This plugin is actively developed and maintained. While stable for production us
 - Performance comparison reports
 
 **Future Considerations:**
-- Frontend optimization mode
+- Frontend optimization presets and import/export
 - Plugin conflict detector
 - Automatic rollback on errors
 - Cloud rule sharing
 
 ### Changelog
 
-**1.3.0 (Current):**
-- Added secure GitHub release updater with SHA256 integrity validation
-- Added strict package host allowlist and ZIP structure verification during update
-- Refactored frontend drawer integration to shared CSS system
-- Improved frontend override UX and reset flow in admin bar drawer
-- Removed legacy `assets/frontend-bar.css` in favor of `assets/drawer.css`
-
-**1.2.0:**
-- Added Automatic Mode with AI suggestions
-- Database storage for sampling data
-- Update Optimizer strategies
-- Dependency cascade blocking
-- Request type optimization
-- 30-day data retention
-
-**1.1.0:**
-- Per-screen plugin control
-- Defer loading support
-- Admin drawer interface
-- Performance monitoring
-
-**1.0.0:**
-- Initial release
-- Manual mode only
-- Basic rule system
+For complete version history and release notes, see [`CHANGELOG.md`](./CHANGELOG.md).
 
 ## Technical Details
 
@@ -512,6 +494,9 @@ CREATE TABLE {prefix}_sapm_sampling_data (
 
 - `sapm_plugin_rules` - Main rule storage (screen → plugin → state)
 - `sapm_request_type_rules` - AJAX/REST/Cron configuration
+- `sapm_frontend_settings` - Frontend optimizer settings (`enabled`, `admin_bypass`, `wc_protection`, `sampling_enabled`, `asset_audit`)
+- `sapm_frontend_rules` - Frontend plugin rules per context (`_mode`, `disabled_plugins`, `enabled_plugins`)
+- `sapm_frontend_asset_rules` - Frontend asset rules per context (`dequeue`, `defer`, `async`)
 - `sapm_mode` - Operation mode (manual/auto)
 - `sapm_update_optimizer_config` - Update optimizer settings
 - `sapm_db_version` - Database schema version

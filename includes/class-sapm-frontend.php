@@ -82,6 +82,9 @@ class SAPM_Frontend {
     /** @var string Option key for frontend settings */
     private const SETTINGS_OPTION_KEY = 'sapm_frontend_settings';
 
+    /** @var string[] Supported frontend filtering modes */
+    private const ALLOWED_FILTER_MODES = ['passthrough', 'blacklist', 'whitelist'];
+
     /** @var string Meta key for per-post/per-term overrides */
     private const OVERRIDE_META_KEY = '_sapm_frontend_overrides';
 
@@ -487,7 +490,7 @@ class SAPM_Frontend {
         // URL pattern-based rules
         $url_patterns = $this->get_url_pattern_rules();
         foreach ($url_patterns as $pattern => $context) {
-            if (preg_match($pattern, $path)) {
+            if ($this->safe_regex_match((string) $pattern, $path)) {
                 return $context;
             }
         }
@@ -715,7 +718,7 @@ class SAPM_Frontend {
         // Get rules for this context
         $context_rules = $this->rules[$context] ?? [];
         $global_rules = $this->rules['_global'] ?? [];
-        $mode = $context_rules['_mode'] ?? $global_rules['_mode'] ?? 'passthrough';
+        $mode = $this->normalize_filter_mode($context_rules['_mode'] ?? $global_rules['_mode'] ?? 'passthrough');
 
         if ($mode === 'passthrough') {
             return $plugins;
@@ -1283,13 +1286,30 @@ class SAPM_Frontend {
      * Save frontend rules.
      */
     public function save_rules(array $rules): bool {
-        $this->rules = $rules;
+        $clean_rules = [];
+
+        foreach ($rules as $context_id => $context_rules) {
+            $context_id = sanitize_key((string) $context_id);
+            if ($context_id === '') {
+                continue;
+            }
+
+            $mode = is_array($context_rules) ? ($context_rules['_mode'] ?? 'passthrough') : 'passthrough';
+
+            $clean_rules[$context_id] = [
+                '_mode' => $this->normalize_filter_mode((string) $mode),
+                'disabled_plugins' => $this->sanitize_plugin_basename_list($context_rules['disabled_plugins'] ?? []),
+                'enabled_plugins' => $this->sanitize_plugin_basename_list($context_rules['enabled_plugins'] ?? []),
+            ];
+        }
+
+        $this->rules = $clean_rules;
         // update_option returns false when value is unchanged — not an error
         $current = get_option(self::RULES_OPTION_KEY);
-        if ($current === $rules) {
+        if ($current === $clean_rules) {
             return true;
         }
-        return update_option(self::RULES_OPTION_KEY, $rules, true);
+        return update_option(self::RULES_OPTION_KEY, $clean_rules, false);
     }
 
     /**
@@ -1301,7 +1321,7 @@ class SAPM_Frontend {
         if ($current === $rules) {
             return true;
         }
-        return update_option(self::ASSET_RULES_OPTION_KEY, $rules, true);
+        return update_option(self::ASSET_RULES_OPTION_KEY, $rules, false);
     }
 
     /**
@@ -1337,7 +1357,7 @@ class SAPM_Frontend {
         if ($current === $clean) {
             return true;
         }
-        return update_option(self::SETTINGS_OPTION_KEY, $clean, true);
+        return update_option(self::SETTINGS_OPTION_KEY, $clean, false);
     }
 
     /**
@@ -1348,7 +1368,7 @@ class SAPM_Frontend {
         foreach ($patterns as $pattern => $context) {
             // Validate regex
             $pattern = trim($pattern);
-            if ($pattern === '' || @preg_match($pattern, '') === false) {
+            if ($pattern === '' || !$this->is_valid_regex_pattern($pattern)) {
                 continue;
             }
 
@@ -1359,6 +1379,72 @@ class SAPM_Frontend {
             }
         }
         return $clean;
+    }
+
+    /**
+     * Normalize filtering mode to a supported value.
+     */
+    private function normalize_filter_mode(string $mode): string {
+        $mode = sanitize_key($mode);
+        if (!in_array($mode, self::ALLOWED_FILTER_MODES, true)) {
+            return 'passthrough';
+        }
+
+        return $mode;
+    }
+
+    /**
+     * Sanitize list of plugin basenames.
+     *
+     * @param mixed $plugins
+     * @return string[]
+     */
+    private function sanitize_plugin_basename_list($plugins): array {
+        if (!is_array($plugins)) {
+            return [];
+        }
+
+        $clean = [];
+        foreach ($plugins as $plugin) {
+            $plugin = wp_normalize_path(wp_unslash((string) $plugin));
+            $plugin = sanitize_text_field($plugin);
+
+            if ($plugin === '' || strpos($plugin, '..') !== false) {
+                continue;
+            }
+
+            $clean[] = $plugin;
+        }
+
+        return array_values(array_unique($clean));
+    }
+
+    /**
+     * Validate regex pattern without emitting PHP warnings.
+     */
+    private function is_valid_regex_pattern(string $pattern): bool {
+        $had_error = false;
+        set_error_handler(static function () use (&$had_error) {
+            $had_error = true;
+            return true;
+        });
+
+        $result = preg_match($pattern, '');
+
+        restore_error_handler();
+
+        return !$had_error && $result !== false;
+    }
+
+    /**
+     * Safe regex match that gracefully handles invalid patterns.
+     */
+    private function safe_regex_match(string $pattern, string $subject): bool {
+        if (!$this->is_valid_regex_pattern($pattern)) {
+            return false;
+        }
+
+        return preg_match($pattern, $subject) === 1;
     }
 
     // ========================================
@@ -1509,7 +1595,7 @@ class SAPM_Frontend {
             $rules = get_option(self::RULES_OPTION_KEY, $this->get_default_rules());
             $context_rules_new = $rules[$context] ?? [];
             $global_rules_new  = $rules['_global'] ?? [];
-            $new_mode = $context_rules_new['_mode'] ?? $global_rules_new['_mode'] ?? 'passthrough';
+            $new_mode = $this->normalize_filter_mode($context_rules_new['_mode'] ?? $global_rules_new['_mode'] ?? 'passthrough');
 
             wp_send_json_success([
                 'context'         => $context,
@@ -1540,7 +1626,7 @@ class SAPM_Frontend {
         }
 
         // Get current mode
-        $mode = $rules[$rule_key]['_mode'] ?? $rules['_global']['_mode'] ?? 'passthrough';
+        $mode = $this->normalize_filter_mode($rules[$rule_key]['_mode'] ?? $rules['_global']['_mode'] ?? 'passthrough');
 
         // If mode is passthrough and we're being asked to block, auto-switch to blacklist
         if ($mode === 'passthrough' && $action === 'block') {
@@ -1594,7 +1680,7 @@ class SAPM_Frontend {
         $sim = $this->simulate_disabled_plugins();
         $context_rules_new = $rules[$context] ?? [];
         $global_rules_new  = $rules['_global'] ?? [];
-        $new_mode = $context_rules_new['_mode'] ?? $global_rules_new['_mode'] ?? 'passthrough';
+        $new_mode = $this->normalize_filter_mode($context_rules_new['_mode'] ?? $global_rules_new['_mode'] ?? 'passthrough');
 
         wp_send_json_success([
             'context'         => $context,
@@ -1661,7 +1747,7 @@ class SAPM_Frontend {
 
         $context_rules = $this->rules[$context] ?? [];
         $global_rules  = $this->rules['_global'] ?? [];
-        $mode          = $context_rules['_mode'] ?? $global_rules['_mode'] ?? 'passthrough';
+        $mode          = $this->normalize_filter_mode($context_rules['_mode'] ?? $global_rules['_mode'] ?? 'passthrough');
 
         $context_disabled = $context_rules['disabled_plugins'] ?? [];
         $context_enabled  = $context_rules['enabled_plugins'] ?? [];
@@ -1751,7 +1837,7 @@ class SAPM_Frontend {
         $context = $this->detect_context();
         $context_rules = $this->rules[$context] ?? [];
         $global_rules = $this->rules['_global'] ?? [];
-        $mode = $context_rules['_mode'] ?? $global_rules['_mode'] ?? 'passthrough';
+        $mode = $this->normalize_filter_mode($context_rules['_mode'] ?? $global_rules['_mode'] ?? 'passthrough');
 
         if ($mode === 'passthrough') {
             return [];
@@ -2201,20 +2287,38 @@ class SAPM_Frontend {
             return;
         }
 
+        $drawer_version = $this->get_asset_version('assets/drawer.css');
+        $bar_version = $this->get_asset_version('assets/frontend-bar.js');
+
         wp_enqueue_style(
             'sapm-drawer',
             SAPM_PLUGIN_URL . 'assets/drawer.css',
             [],
-            SAPM_VERSION . '.' . time()
+            $drawer_version
         );
 
         wp_enqueue_script(
             'sapm-frontend-bar',
             SAPM_PLUGIN_URL . 'assets/frontend-bar.js',
             [],
-            SAPM_VERSION . '.' . time(),
+            $bar_version,
             true
         );
+    }
+
+    /**
+     * Build deterministic asset version string (plugin version + file mtime).
+     */
+    private function get_asset_version(string $relative_path): string {
+        $relative_path = ltrim($relative_path, '/\\');
+        $asset_path = SAPM_PLUGIN_DIR . $relative_path;
+        $mtime = file_exists($asset_path) ? (int) filemtime($asset_path) : 0;
+
+        if ($mtime <= 0) {
+            return SAPM_VERSION;
+        }
+
+        return SAPM_VERSION . '.' . $mtime;
     }
 
     /**
@@ -2273,8 +2377,8 @@ class SAPM_Frontend {
         // Determine filtering mode for context
         $context_rules = $this->rules[$context] ?? [];
         $global_rules_mode = $this->rules['_global'] ?? [];
-        $current_mode = $context_rules['_mode'] ?? $global_rules_mode['_mode'] ?? 'passthrough';
-        $drawer_css_url = add_query_arg('ver', SAPM_VERSION . '.' . time(), SAPM_PLUGIN_URL . 'assets/drawer.css');
+        $current_mode = $this->normalize_filter_mode($context_rules['_mode'] ?? $global_rules_mode['_mode'] ?? 'passthrough');
+        $drawer_css_url = add_query_arg('ver', $this->get_asset_version('assets/drawer.css'), SAPM_PLUGIN_URL . 'assets/drawer.css');
 
         // Detect per-object override target
         $this->detect_override_target();

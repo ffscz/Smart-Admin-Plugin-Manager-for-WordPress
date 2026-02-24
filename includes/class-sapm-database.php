@@ -794,11 +794,7 @@ class SAPM_Database {
                 plugin_file,
                 sample_count,
                 avg_ms,
-                avg_queries,
-                (SELECT COUNT(DISTINCT t2.trigger_name) 
-                 FROM `{$table_name}` t2 
-                 WHERE t2.request_type = t1.request_type 
-                 AND t2.plugin_file = t1.plugin_file) as trigger_presence
+                avg_queries
              FROM `{$table_name}` t1
              WHERE sample_count >= %d
              AND request_type IN ('ajax', 'rest', 'cron', 'cli')
@@ -812,6 +808,28 @@ class SAPM_Database {
             'cron' => ['suggested_blocks' => [], 'suggested_whitelist' => []],
             'cli' => ['suggested_blocks' => [], 'suggested_whitelist' => []],
         ];
+
+        $total_triggers_by_type = [
+            'ajax' => 0,
+            'rest' => 0,
+            'cron' => 0,
+            'cli' => 0,
+        ];
+
+        $trigger_totals = $wpdb->get_results(
+            "SELECT request_type, COUNT(DISTINCT trigger_name) AS total_triggers
+             FROM `{$table_name}`
+             WHERE request_type IN ('ajax', 'rest', 'cron', 'cli')
+             GROUP BY request_type",
+            ARRAY_A
+        );
+
+        foreach ((array) $trigger_totals as $row) {
+            $type = sanitize_key($row['request_type'] ?? '');
+            if (isset($total_triggers_by_type[$type])) {
+                $total_triggers_by_type[$type] = (int) ($row['total_triggers'] ?? 0);
+            }
+        }
 
         // Analyze patterns
         $plugin_trigger_map = [];
@@ -847,10 +865,7 @@ class SAPM_Database {
             foreach ($plugins as $plugin => $data) {
                 $avg_ms = $data['count'] > 0 ? $data['total_avg_ms'] / $data['count'] : 0;
                 $trigger_count = count($data['triggers']);
-                $total_triggers = count($wpdb->get_col($wpdb->prepare(
-                    "SELECT DISTINCT trigger_name FROM `{$table_name}` WHERE request_type = %s",
-                    $rt
-                )));
+                $total_triggers = (int) ($total_triggers_by_type[$rt] ?? 0);
 
                 // Calculate confidence
                 $presence_ratio = $total_triggers > 0 ? $trigger_count / $total_triggers : 0;

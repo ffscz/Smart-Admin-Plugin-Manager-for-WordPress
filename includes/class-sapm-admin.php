@@ -706,7 +706,7 @@ class SAPM_Admin {
                         </div>
                         <div class="sapm-rt-perf-title">
                             <h4><?php _e('Per-Plugin Performance Measurement (Sampling)', 'sapm'); ?></h4>
-                            <p><?php _e('Measures individual plugin performance during requests using random sampling (5% of requests). helps decide optimization.', 'sapm'); ?></p>
+                            <p><?php _e('Measures individual plugin performance during requests using random sampling (10% of requests). helps decide optimization.', 'sapm'); ?></p>
                         </div>
                     </div>
                     <div class="sapm-rt-perf-actions">
@@ -3197,10 +3197,16 @@ class SAPM_Admin {
         $clean_rules = [];
         foreach ($rules as $context_id => $context_rules) {
             $context_id = sanitize_key($context_id);
+
+            $mode = sanitize_key($context_rules['_mode'] ?? 'passthrough');
+            if (!in_array($mode, ['passthrough', 'blacklist', 'whitelist'], true)) {
+                $mode = 'passthrough';
+            }
+
             $clean_rules[$context_id] = [
-                '_mode' => sanitize_key($context_rules['_mode'] ?? 'passthrough'),
-                'disabled_plugins' => array_map('sanitize_text_field', $context_rules['disabled_plugins'] ?? []),
-                'enabled_plugins' => array_map('sanitize_text_field', $context_rules['enabled_plugins'] ?? []),
+                '_mode' => $mode,
+                'disabled_plugins' => $this->sanitize_plugin_basename_list($context_rules['disabled_plugins'] ?? []),
+                'enabled_plugins' => $this->sanitize_plugin_basename_list($context_rules['enabled_plugins'] ?? []),
             ];
         }
 
@@ -3305,6 +3311,32 @@ class SAPM_Admin {
     private function sanitize_json_input(string $input): array {
         $decoded = json_decode(wp_unslash($input), true);
         return is_array($decoded) ? $decoded : [];
+    }
+
+    /**
+     * Sanitize seznam plugin basename hodnot.
+     *
+     * @param mixed $plugins
+     * @return array
+     */
+    private function sanitize_plugin_basename_list($plugins): array {
+        if (!is_array($plugins)) {
+            return [];
+        }
+
+        $clean = [];
+        foreach ($plugins as $plugin) {
+            $plugin = wp_normalize_path(wp_unslash((string) $plugin));
+            $plugin = sanitize_text_field($plugin);
+
+            if ($plugin === '' || strpos($plugin, '..') !== false) {
+                continue;
+            }
+
+            $clean[] = $plugin;
+        }
+
+        return array_values(array_unique($clean));
     }
 
     // ========================================

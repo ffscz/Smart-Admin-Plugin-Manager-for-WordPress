@@ -5,7 +5,7 @@ if (!defined('ABSPATH')) {
 }
 
 if (!defined('SAPM_VERSION')) {
-    define('SAPM_VERSION', '1.3.0');
+    define('SAPM_VERSION', '1.3.2');
 }
 if (!defined('SAPM_OPTION_KEY')) {
     define('SAPM_OPTION_KEY', 'sapm_plugin_rules');
@@ -83,6 +83,9 @@ class SAPM_Core {
 
     /** @var string */
     private $perf_plugins_root = '';
+
+    /** @var array Cached plugin resolution for query attribution by plugin directory */
+    private $perf_query_file_cache = [];
 
     /** @var bool */
     private $perf_snapshot_saved = false;
@@ -277,7 +280,7 @@ class SAPM_Core {
         $this->perf_query_total++;
 
         $plugin_key = '';
-        $trace = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 15);
+        $trace = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 8);
         foreach ($trace as $frame) {
             if (empty($frame['file'])) {
                 continue;
@@ -292,14 +295,26 @@ class SAPM_Core {
             }
             $parts = explode('/', $relative);
             $dir = $parts[0] ?? '';
-            if ($dir !== '' && isset($this->perf_plugin_dir_map[$dir])) {
+
+            if ($dir === '') {
+                continue;
+            }
+
+            if (array_key_exists($dir, $this->perf_query_file_cache)) {
+                $cached = $this->perf_query_file_cache[$dir];
+                if ($cached !== '') {
+                    $plugin_key = $cached;
+                }
+                break;
+            }
+
+            if (isset($this->perf_plugin_dir_map[$dir])) {
                 $plugin_key = $this->perf_plugin_dir_map[$dir];
+                $this->perf_query_file_cache[$dir] = $plugin_key;
                 break;
             }
-            if (count($parts) === 1 && isset($this->perf_plugin_dir_map[$parts[0]])) {
-                $plugin_key = $this->perf_plugin_dir_map[$parts[0]];
-                break;
-            }
+
+            $this->perf_query_file_cache[$dir] = '';
         }
 
         if ($plugin_key !== '') {
@@ -1702,10 +1717,11 @@ class SAPM_Core {
         // Apply rules - first pass: collect blocked plugins
         $filtered = [];
         $blocked_plugins = [];
+        $self_plugin_basename = $this->get_self_plugin_basename();
 
         foreach ($plugins as $plugin) {
             // This plugin must always run
-            if ($plugin === plugin_basename(__FILE__)) {
+            if ($plugin === $self_plugin_basename) {
                 $filtered[] = $plugin;
                 continue;
             }
@@ -1807,10 +1823,11 @@ class SAPM_Core {
 
         $filtered = [];
         $blocked_plugins = [];
+        $self_plugin_basename = $this->get_self_plugin_basename();
 
         foreach ($plugins as $plugin => $time) {
             // This plugin must always run
-            if ($plugin === plugin_basename(__FILE__)) {
+            if ($plugin === $self_plugin_basename) {
                 $filtered[$plugin] = $time;
                 continue;
             }
@@ -1987,5 +2004,16 @@ class SAPM_Core {
         }
 
         return '_group_' . $group;
+    }
+
+    /**
+     * Basename hlavního SAPM pluginu pro self-protection při filtrování.
+     */
+    private function get_self_plugin_basename(): string {
+        if (defined('SAPM_PLUGIN_FILE') && function_exists('plugin_basename')) {
+            return plugin_basename(SAPM_PLUGIN_FILE);
+        }
+
+        return 'smart-admin-plugin-manager/smart-admin-plugin-manager.php';
     }
 }

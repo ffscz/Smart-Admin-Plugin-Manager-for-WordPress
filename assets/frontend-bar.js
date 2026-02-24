@@ -249,6 +249,7 @@
             }
 
             html += renderPerfSection();
+            html += renderAssetsSection();
             html += renderRulesSection(perfMap);
 
             renderHtmlSafely(body, html);
@@ -344,7 +345,7 @@
                 html += '</div>';
                 html += '<div class="sapm-fe-drawer-reload-notice" id="sapm-fe-reload-notice" hidden>';
                 html += '<span>🔄 ' + esc(s.reloadNotice || 'Changes will take effect after page reload') + '</span>';
-                html += ' <button class="sapm-fe-reload-btn" onclick="location.reload()">Reload</button>';
+                html += ' <button type="button" class="sapm-fe-reload-btn" id="sapm-fe-reload-btn">Reload</button>';
                 html += '</div>';
             }
 
@@ -465,6 +466,14 @@
                 resetBtn.addEventListener('click', function (e) {
                     e.preventDefault();
                     sendResetOverrides(resetBtn);
+                });
+            }
+
+            var reloadBtn = body.querySelector('#sapm-fe-reload-btn');
+            if (reloadBtn) {
+                reloadBtn.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    window.location.reload();
                 });
             }
         }

@@ -4,7 +4,7 @@ Tags: performance, admin, optimization, plugin manager, speed, loading, admin pe
 Requires at least: 6.0
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.3.1
+Stable tag: 1.3.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -140,7 +140,12 @@ All strategies preserve update badge accuracy and allow manual checks anytime.
 
 == Changelog ==
 
-= 1.3.1 (Current) =
+= 1.3.2 (Current) =
+* FIXED: Self-protection bug in plugin filtering (SAPM can no longer block itself).
+* FIXED: Invalid frontend rule modes now safely fall back to passthrough.
+* IMPROVED: Better hardening and lower overhead in frontend/cache and auto-rules paths.
+
+= 1.3.1 =
 * FIXED: GitHub updater default repository mapping corrected to `ffscz/Smart-Admin-Plugin-Manager-for-WordPress`
 * IMPROVED: Release discovery reliability for `/releases/latest` metadata lookup
 * SECURITY: Preserved strict integrity gate (SHA256 + host allowlist + package URL pinning)
@@ -186,6 +191,9 @@ All strategies preserve update badge accuracy and allow manual checks anytime.
 * WordPress core screen support
 
 == Upgrade Notice ==
+
+= 1.3.2 =
+Maintenance and hardening release with frontend rules validation fixes, self-protection fix, and performance optimizations. Recommended for all sites.
 
 = 1.3.1 =
 Hotfix release: corrects GitHub repository mapping used by updater metadata fetch. Recommended for all 1.3.0 installations.
