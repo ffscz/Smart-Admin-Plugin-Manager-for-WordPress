@@ -1,6 +1,6 @@
 # Smart Admin Plugin Manager
 
-Intelligent WordPress plugin loading management for WordPress admin interface - per-screen control with automatic optimization suggestions.
+Intelligent WordPress plugin loading management for both admin and public frontend — per-screen and per-context control with automatic optimization suggestions.
 
 [![WordPress Plugin Version](https://img.shields.io/badge/WordPress-6.0%2B-blue.svg)](https://wordpress.org/)
 [![PHP Version](https://img.shields.io/badge/PHP-7.4%2B-purple.svg)](https://www.php.net/)
@@ -9,9 +9,9 @@ Intelligent WordPress plugin loading management for WordPress admin interface - 
 
 ## Description
 
-Smart Admin Plugin Manager (SAPM) is an advanced WordPress plugin that optimizes admin performance by controlling which plugins load on specific admin screens. Unlike traditional solutions that load all active plugins on every admin page, SAPM allows granular per-screen control, automatically detecting unnecessary plugins and providing data-driven optimization suggestions.
+Smart Admin Plugin Manager (SAPM) is an advanced WordPress plugin that optimizes performance by controlling which plugins load on specific admin screens **and on the public frontend**. Unlike traditional solutions that load all active plugins on every page, SAPM allows granular per-screen and per-context control, automatically detecting unnecessary plugins and providing data-driven optimization suggestions.
 
-The plugin operates at the core WordPress level using MU-plugins mechanism, intercepting the plugin loading process before WordPress initialization completes. This allows for dramatic performance improvements by preventing heavy plugins from loading on screens where they are not needed.
+The plugin operates at the core WordPress level using the MU-plugins mechanism, intercepting the plugin loading process before WordPress initialization completes. This allows for dramatic performance improvements by preventing heavy plugins from loading where they are not needed — whether in the WordPress admin, on public pages, in AJAX requests, REST API calls, or WP-Cron tasks.
 
 **Current Version:** 1.3.2  
 **Status:** Active Development  
@@ -82,9 +82,9 @@ The plugin operates at the core WordPress level using MU-plugins mechanism, inte
 - **Per-Plugin Metrics:**
   - Load time measurement (milliseconds)
   - Database query counting
-  - Memory usage tracking
 - **Admin Screen Sampling:** 100% sampling for admin screens
 - **Request Type Sampling:** 10% sampling for AJAX/REST/Cron/CLI
+- **Frontend Sampling:** 5% sampling for public frontend requests
 - **Real-time Dashboard:** Visual performance reports
 
 #### 6. Frontend Optimizer (Public Pages)
@@ -98,7 +98,7 @@ The plugin operates at the core WordPress level using MU-plugins mechanism, inte
 - **Admin Drawer:** Quick plugin management overlay on any admin screen
 - **WP-Admin Bar Integration:** At-a-glance disabled plugin count
 - **Debug Mode:** Detailed logging via Query Monitor integration
-- **REST API:** Programmatic control (17 endpoints)
+- **AJAX Handlers:** 22 admin-ajax.php handlers for all plugin operations
 - **Filters & Actions:** 20+ customization hooks
 
 ## Compatibility
@@ -339,6 +339,48 @@ Plugin Updater Blocking: All known updaters blocked except security plugins
   - Quick rule toggle
   - Performance metrics for current screen
 
+### Frontend Optimizer
+
+Frontend Optimizer controls which plugins and assets are loaded on **public-facing pages**. It is **disabled by default** (`Passthrough` mode) and must be explicitly configured.
+
+**1. Enable Frontend Optimizer:**
+   - Go to Settings → Plugin Manager → Frontend tab
+   - Toggle **Frontend Optimizer** to enabled
+   - Optionally enable **Admin Bypass** (logged-in admins skip all frontend rules)
+   - Optionally enable **WooCommerce Critical-Page Protection** (cart, checkout, account pages always use Passthrough)
+
+**2. Configure per-context rules:**
+
+   Each frontend context (WooCommerce, Core Pages, Content, Archives, Special) has an independent filtering mode:
+
+   | Mode | Behaviour |
+   |---|---|
+   | `Passthrough` | All plugins load normally (safe default) |
+   | `Blacklist` | Listed plugins are **blocked**; all others load |
+   | `Whitelist` | Only listed plugins **load**; all others are blocked |
+
+   Start with `Blacklist` for contexts where you want to block only a few heavy plugins (e.g., page builders on archive pages). Use `Whitelist` for very controlled contexts like a plain blog post where only a minimal set of plugins is needed.
+
+**3. Per-page overrides (optional):**
+   - While browsing a specific post or taxonomy term as a logged-in admin, open the **Frontend Drawer** from the admin bar
+   - Toggle individual plugins on or off for **that single page only**
+   - The override applies only to that specific post/term ID; other pages follow context rules
+   - To clear overrides for the current page, click **Reset overrides** in the drawer (`sapm_frontend_reset_overrides`)
+
+**4. Safe Mode recovery:**
+   - If frontend rules accidentally break the site (blank page, broken layout), use the **Safe Mode URL**
+   - The URL is shown in Settings → Plugin Manager → Frontend (under Safety Controls)
+   - Opening this URL temporarily bypasses all frontend rules for your session and lets you access the admin to correct the configuration
+   - The token is rotated each time Safe Mode is triggered
+
+**Recommended workflow:**
+1. Enable on staging site first
+2. Start all contexts in `Passthrough` mode
+3. Run the Asset Audit to discover what loads on each context
+4. Switch one context to `Blacklist` and block only plugins confirmed unneeded
+5. Test frontend thoroughly before switching to `Whitelist` mode
+6. Deploy to production only after complete testing
+
 ## Advantages
 
 ### Performance Benefits
@@ -497,22 +539,45 @@ CREATE TABLE {prefix}_sapm_sampling_data (
 - `sapm_frontend_settings` - Frontend optimizer settings (`enabled`, `admin_bypass`, `wc_protection`, `sampling_enabled`, `asset_audit`)
 - `sapm_frontend_rules` - Frontend plugin rules per context (`_mode`, `disabled_plugins`, `enabled_plugins`)
 - `sapm_frontend_asset_rules` - Frontend asset rules per context (`dequeue`, `defer`, `async`)
+- `sapm_frontend_asset_audit` - Cached audit of enqueued frontend CSS/JS assets
+- `sapm_frontend_safe_key` - Secret token for one-click Safe Mode recovery URL
 - `sapm_mode` - Operation mode (manual/auto)
 - `sapm_update_optimizer_config` - Update optimizer settings
-- `sapm_db_version` - Database schema version
+- `sapm_db_version` - Database schema version (current: `1.0.0`)
+- `sapm_menu_snapshots` - Admin menu structure snapshots for blocked/deferred plugins
+- `sapm_admin_theme` - Admin UI theme preference
+- `sapm_github_updater_last_good_meta` - Last successfully fetched GitHub release metadata (fallback)
+- `sapm_github_updater_http_cache` - ETag/Last-Modified HTTP cache for GitHub API requests
+- `sapm_last_cron_update_check` - Timestamp of last background update check
 
-### REST API Endpoints
+### AJAX Handlers
 
-**Base URL:** `/wp-json/sapm/v1/`
+All plugin operations use WordPress admin-ajax.php (`wp_ajax_*`). The plugin does **not** expose a REST API.
 
-- `GET /config` - Get all rules
-- `POST /config` - Update rules
-- `POST /save_rules` - Save specific rules
-- `GET /stats` - Performance statistics
-- `GET /sampling_stats` - Sampling data statistics
-- `GET /auto_suggestions` - Get automatic suggestions
-- `POST /apply_auto_rules` - Apply automatic rules
-- `POST /reset_auto_data` - Reset sampling data
+**Base:** `wp-admin/admin-ajax.php` (nonce-protected, logged-in users only)
+
+- `sapm_save_rules` - Save admin plugin rules
+- `sapm_drawer_toggle_rule` - Toggle rule from admin drawer
+- `sapm_get_current_screen` - Get current screen info and active plugins
+- `sapm_detect_plugins` - Detect plugins for current screen
+- `sapm_save_request_type_rules` - Save AJAX/REST/Cron/CLI rules
+- `sapm_get_request_type_performance` - Get performance data by request type
+- `sapm_clear_request_type_performance` - Clear request type performance data
+- `sapm_set_mode` - Switch between manual/auto mode
+- `sapm_get_auto_suggestions` - Get automatic optimization suggestions
+- `sapm_apply_auto_rules` - Apply automatic suggestions as rules
+- `sapm_reset_auto_data` - Reset sampling/performance data
+- `sapm_get_sampling_stats` - Get sampling statistics
+- `sapm_save_update_optimizer` - Save Update Optimizer configuration
+- `sapm_force_update_check` - Trigger immediate update check
+- `sapm_save_admin_theme` - Save admin UI theme preference
+- `sapm_save_frontend_settings` - Save Frontend Optimizer global settings
+- `sapm_save_frontend_rules` - Save frontend plugin rules per context
+- `sapm_save_frontend_asset_rules` - Save frontend asset dequeue/defer/async rules
+- `sapm_get_frontend_asset_audit` - Get audit of enqueued frontend assets
+- `sapm_get_frontend_suggestions` - Get frontend optimization suggestions
+- `sapm_frontend_toggle_rule` - Toggle rule from frontend admin-bar drawer
+- `sapm_frontend_reset_overrides` - Reset per-page frontend overrides
 
 ### Filters & Actions
 
@@ -524,13 +589,13 @@ add_filter('sapm_safe_to_block_patterns', function($patterns) {
     return $patterns;
 });
 
-// Modify required plugins
+// Modify required plugins (never suggest blocking)
 add_filter('sapm_required_plugins', function($required) {
     $required['critical-plugin'] = []; // Never block
     return $required;
 });
 
-// Add screen definitions
+// Add or modify admin screen definitions
 add_filter('sapm_screen_definitions', function($screens) {
     $screens['my_screen'] = [
         'label' => 'My Custom Screen',
@@ -539,20 +604,52 @@ add_filter('sapm_screen_definitions', function($screens) {
     ];
     return $screens;
 });
+
+// Enable/disable cascade blocking
+add_filter('sapm_cascade_blocking_enabled', '__return_false');
+
+// Protect additional parent plugins from cascade blocking
+add_filter('sapm_protected_parent_plugins', function($parents) {
+    $parents[] = 'my-suite/my-suite.php';
+    return $parents;
+});
+
+// Enable/disable performance tracking
+add_filter('sapm_perf_enabled', '__return_false');
+
+// Change request type sampling rate (default 10%)
+add_filter('sapm_request_type_sampling_rate', function() { return 0.05; });
+
+// Add custom frontend contexts
+add_filter('sapm_frontend_contexts', function($contexts) {
+    $contexts['my_context'] = ['label' => 'My Context', 'matcher' => fn() => is_page('special')];
+    return $contexts;
+});
+
+// Override detected frontend context
+add_filter('sapm_frontend_detected_context', function($ctx) {
+    return 'woocommerce'; // force to WooCommerce context
+});
+
+// Modify filtered plugin list on frontend
+add_filter('sapm_frontend_filtered_plugins', function($plugins) {
+    $plugins[] = 'my-plugin/my-plugin.php'; // always load on frontend
+    return $plugins;
+});
+
+// Override GitHub repository for updater
+add_filter('sapm_github_updater_repo', function() {
+    return 'my-org/my-fork';
+});
+
+// Add trusted hosts for update package download
+add_filter('sapm_github_updater_allowed_hosts', function($hosts) {
+    $hosts[] = 'my-cdn.example.com';
+    return $hosts;
+});
 ```
 
-**Actions:**
-```php
-// After rule application
-add_action('sapm_rules_applied', function($screen_id, $disabled_plugins) {
-    // Log or process disabled plugins
-}, 10, 2);
-
-// Before sampling data storage
-add_action('sapm_before_sample_store', function($sample_data) {
-    // Modify or log sample data
-}, 10, 1);
-```
+> **Note:** The plugin does not expose public action hooks (`do_action`) for rule application or sampling events in the current version.
 
 ### Performance Impact
 
@@ -584,7 +681,31 @@ Contributions welcome! This plugin is under active development.
 
 ### Coding Standards
 
-- Follow WordPress Coding Standards
+This project adheres to the [WordPress Coding Standards](https://github.com/WordPress/WordPress-Coding-Standards) as closely as practical.
+
+**Fully compliant areas:**
+- File naming: `class-sapm-*.php` lowercase-with-hyphens convention
+- Class naming: `SAPM_ClassName` prefix pattern
+- Method/variable naming: `snake_case` throughout
+- Nonce verification: all AJAX handlers open with `check_ajax_referer()`
+- Capability checks: `current_user_can('manage_options')` before every privileged action
+- Input sanitization: `sanitize_key()`, `sanitize_text_field()`, `absint()` applied to all inputs
+- Output escaping: `esc_html()`, `esc_attr()`, `esc_url()` used in HTML output
+- Internationalization: all user-facing strings wrapped in `__()`, `_e()` with `sapm` text-domain
+- WordPress helper functions: `checked()`, `selected()`, `wp_localize_script()` used correctly
+- Security header: `if ( ! defined( 'ABSPATH' ) ) { exit; }` in every file
+
+**Known deviations (not security issues, stylistic only):**
+- Spacing inside parentheses: `if(!defined(...))` instead of WPCS `if ( ! defined( ... ) )`
+- Yoda conditions not consistently applied
+- `_e()` used instead of `esc_html_e()` in some output contexts
+- Class-level PHPDoc blocks missing on `SAPM_Admin` and `SAPM_Core`
+- Direct `file_put_contents()` / `file_get_contents()` instead of `WP_Filesystem` API (MU-loader install)
+- Inline `<script>` blocks in some settings render methods
+- Indentation uses spaces; WPCS requires tabs
+
+Running `phpcs --standard=WordPress` will report these as warnings/errors. Contributions are expected to fix them progressively.
+
 - Use PHPDoc for all methods
 - Comment complex logic
 - Test on PHP 7.4, 8.0, 8.1, 8.2
