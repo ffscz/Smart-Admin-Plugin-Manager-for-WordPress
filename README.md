@@ -90,7 +90,7 @@ The plugin operates at the core WordPress level using the MU-plugins mechanism, 
 #### 6. Frontend Optimizer (Public Pages)
 - **Per-Context Filtering Modes:** `Passthrough`, `Blacklist`, `Whitelist` for frontend contexts (WooCommerce, core pages, content, archives, special).
 - **Per-Page Overrides:** Optional post/term-level overrides from the frontend drawer for one specific page or taxonomy term.
-- **Asset Manager:** Per-context CSS/JS dequeue rules with optional script `defer` / `async` attributes.
+- **Asset Manager:** ~~Per-context CSS/JS dequeue rules with optional script `defer` / `async` attributes.~~  The feature is not yet fully implemented in the sense that it does not currently allow you to define or create rules for loading assets on a specific page or group of pages. This is planned as a future feature.
 - **Safety Controls:** Admin Bypass, WooCommerce critical-page protection, and one-click Safe Mode recovery URL.
 
 ### Developer Tools
