@@ -11,6 +11,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [![License](https://img.shields.io/badge/License-GPLv2-green.svg)](https://www.gnu.org/licenses/gpl-2.0.html)
 [![Status](https://img.shields.io/badge/Status-Stable-brightgreen.svg)](https://github.com/ffscz/Smart-Admin-Plugin-Manager-for-WordPress)
 
+## [1.3.4] - 2026-03-10
+
+### Fixed
+- GitHub release ZIP now stores raw archive entry names with POSIX separators (`/`) across platforms (no Windows backslashes in ZIP metadata).
+- Resolved Linux extraction edge case where uploaded release asset produced literal backslashes in extracted filenames and failed activation.
+
+### Changed
+- Removed `tools/build-release.ps1` from plugin directory in repository to keep plugin tree clean.
+- Added explicit installation guidance to use release asset `smart-admin-plugin-manager.zip` instead of GitHub auto-generated source archives.
+
+### Breaking Changes
+- None. Backward-compatible hotfix release.
+
 ## [1.3.3] - 2026-03-10
 
 ### Fixed

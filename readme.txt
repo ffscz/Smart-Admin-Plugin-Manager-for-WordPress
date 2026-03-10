@@ -4,7 +4,7 @@ Tags: performance, admin, optimization, plugin manager, speed, loading, admin pe
 Requires at least: 6.0
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.3.3
+Stable tag: 1.3.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -140,7 +140,13 @@ All strategies preserve update badge accuracy and allow manual checks anytime.
 
 == Changelog ==
 
-= 1.3.3 (Current) =
+= 1.3.4 (Current) =
+* FIXED: GitHub release ZIP now stores archive entry names with POSIX separators (`/`) in raw ZIP metadata (no Windows `\` separators).
+* FIXED: Linux extraction compatibility for direct WordPress upload/install from release asset `smart-admin-plugin-manager.zip`.
+* CHANGED: Removed build tooling file from plugin directory in repository (`tools/build-release.ps1`) to keep plugin tree clean.
+* NOTE: For installation from GitHub, always use release asset `smart-admin-plugin-manager.zip` (not auto-generated “Source code (zip)”).
+
+= 1.3.3 =
 * FIXED: GitHub release ZIP packaging now uses normalized Unix-style paths (`/`) to ensure correct extraction on Linux hosting.
 * FIXED: Prevented malformed extracted filenames with literal backslashes (`\\`) that caused activation error "Plugin file does not exist".
 * IMPROVED: Release packaging process now generates deterministic ZIP + matching `.sha256` for safer updater delivery.
@@ -197,8 +203,11 @@ All strategies preserve update badge accuracy and allow manual checks anytime.
 
 == Upgrade Notice ==
 
+= 1.3.4 =
+Hotfix release: fixes raw ZIP entry separators for Linux compatibility and removes build tooling from plugin directory. Install using release asset `smart-admin-plugin-manager.zip`.
+
 = 1.3.3 =
-Hotfix release: fixes GitHub asset ZIP path separators for Linux compatibility and resolves activation failures caused by malformed extracted paths. Recommended for all sites using GitHub release installation.
+Hotfix release: improved release ZIP path normalization for Linux compatibility. If activation still fails due malformed extracted paths, upgrade to 1.3.4.
 
 = 1.3.2 =
 Maintenance and hardening release with frontend rules validation fixes, self-protection fix, and performance optimizations. Recommended for all sites.
