@@ -5,7 +5,7 @@ if (!defined('ABSPATH')) {
 }
 
 if (!defined('SAPM_VERSION')) {
-    define('SAPM_VERSION', '1.3.2');
+    define('SAPM_VERSION', '1.3.3');
 }
 if (!defined('SAPM_OPTION_KEY')) {
     define('SAPM_OPTION_KEY', 'sapm_plugin_rules');
