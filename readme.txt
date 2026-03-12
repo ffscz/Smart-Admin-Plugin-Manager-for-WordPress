@@ -4,7 +4,7 @@ Tags: performance, admin, optimization, plugin manager, speed, loading, admin pe
 Requires at least: 6.0
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.3.4
+Stable tag: 1.3.6
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -140,11 +140,10 @@ All strategies preserve update badge accuracy and allow manual checks anytime.
 
 == Changelog ==
 
-= 1.3.4 (Current) =
-* FIXED: GitHub release ZIP now stores archive entry names with POSIX separators (`/`) in raw ZIP metadata (no Windows `\` separators).
-* FIXED: Linux extraction compatibility for direct WordPress upload/install from release asset `smart-admin-plugin-manager.zip`.
-* CHANGED: Removed build tooling file from plugin directory in repository (`tools/build-release.ps1`) to keep plugin tree clean.
-* NOTE: For installation from GitHub, always use release asset `smart-admin-plugin-manager.zip` (not auto-generated “Source code (zip)”).
+= 1.3.5 (Current) =
+* FIXED: MU-loader self-healing — `sapm_maybe_refresh_mu_loader()` now recreates missing MU file on `admin_init`, preventing permanent loss after failed activation.
+* FIXED: Early translation loading warning (WP 6.7+) — `define_screens()` `__()` calls deferred via lazy initialization to avoid `_load_textdomain_just_in_time` notice.
+* IMPROVED: MU-plugin directory resolution now consistently respects `WPMU_PLUGIN_DIR` constant.
 
 = 1.3.3 =
 * FIXED: GitHub release ZIP packaging now uses normalized Unix-style paths (`/`) to ensure correct extraction on Linux hosting.
@@ -203,11 +202,15 @@ All strategies preserve update badge accuracy and allow manual checks anytime.
 
 == Upgrade Notice ==
 
-= 1.3.4 =
-Hotfix release: fixes raw ZIP entry separators for Linux compatibility and removes build tooling from plugin directory. Install using release asset `smart-admin-plugin-manager.zip`.
+= 1.3.5 =
+Bugfix release: fixes MU-plugin creation failure on Windows, self-healing MU-loader, and WP 6.7+ early translation warning. Recommended for all installations.
+
+= 1.3.4 (Current) =
+* FIXED: Linux extraction compatibility for direct WordPress upload/install from release asset `smart-admin-plugin-manager.zip`.
+* NOTE: For installation from GitHub, always use release asset `smart-admin-plugin-manager.zip` (not auto-generated “Source code (zip)”).
 
 = 1.3.3 =
-Hotfix release: improved release ZIP path normalization for Linux compatibility. If activation still fails due malformed extracted paths, upgrade to 1.3.4.
+Hotfix release: fixes GitHub asset ZIP path separators for Linux compatibility and resolves activation failures caused by malformed extracted paths. Recommended for all sites using GitHub release installation.
 
 = 1.3.2 =
 Maintenance and hardening release with frontend rules validation fixes, self-protection fix, and performance optimizations. Recommended for all sites.

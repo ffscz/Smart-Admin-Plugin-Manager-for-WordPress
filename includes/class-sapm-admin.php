@@ -1276,8 +1276,7 @@ class SAPM_Admin {
             wp_send_json_error(['message' => 'Invalid state'], 400);
         }
 
-        $matched_def = $this->core->match_screen_definition($screen_id);
-        $rule_key = $matched_def ?? $screen_id;
+        $rule_key = $this->core->get_rule_storage_key($screen_id);
 
         $rules = get_option(SAPM_OPTION_KEY, []);
         $rules = is_array($rules) ? $rules : [];
@@ -1604,12 +1603,7 @@ class SAPM_Admin {
                 // Map raw screen_id from Auto mode to $def_id from screen_definitions
                 // Auto mode uses raw screen IDs: 'dashboard', 'options-general', 'plugins', 'edit-post', etc.
                 // UI reads by $def_id from screen_definitions: 'dashboard', 'settings_general', 'plugin_pages', 'posts_edit', etc.
-                $rule_screen_id = $this->core->match_screen_definition($screen);
-                
-                // If no matching definition found, use raw screen ID as fallback
-                if ($rule_screen_id === null) {
-                    $rule_screen_id = $screen;
-                }
+                $rule_screen_id = $this->core->get_rule_storage_key($screen);
                 
                 // Initialize screen rules if not exists
                 if (!isset($plugin_rules[$rule_screen_id])) {

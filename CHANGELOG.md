@@ -11,15 +11,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [![License](https://img.shields.io/badge/License-GPLv2-green.svg)](https://www.gnu.org/licenses/gpl-2.0.html)
 [![Status](https://img.shields.io/badge/Status-Stable-brightgreen.svg)](https://github.com/ffscz/Smart-Admin-Plugin-Manager-for-WordPress)
 
+## [1.3.6] - 2026-03-12
+
+### Fixed
+- **Plugin admin page rule leakage**: dynamic plugin admin screens are now stored under their exact raw screen IDs (for example `toplevel_page_zizi-cache`) instead of the generic `plugin_pages` bucket, so manual and auto rules from one plugin page no longer spill into all other plugin pages.
+- **Legacy `plugin_pages` rule migration**: existing generic plugin-page rules are automatically migrated on load to preserve intended behavior while removing the over-broad scope that caused cross-plugin admin filtering.
+- **REST whitelist smart detection**: in whitelist mode, namespace-based REST detection now correctly keeps plugin-specific REST APIs available when `_detect_by_namespace` is enabled, preventing admin UIs such as ZiziCache from losing their registered REST routes.
+
+### Changed
+- Dynamic plugin page rule persistence now preserves the intended hierarchy exactly: specific screen → group → global, without collapsing specific plugin pages into the shared plugin-pages definition.
+- Release package metadata updated for version `1.3.6`.
+
+### Breaking Changes
+- None. Backward-compatible bugfix release.
+
+## [1.3.5] - 2026-03-12
+
+### Fixed
+- **MU-plugin not created on activation**: `sapm_create_mu_loader()` path validation used `realpath()` which returns backslashes on Windows while `WP_CONTENT_DIR` uses forward slashes — `strpos()` comparison silently failed. Replaced with `wp_normalize_path()` for cross-platform compatibility.
+- **Self-healing MU-loader**: `sapm_maybe_refresh_mu_loader()` (runs on `admin_init`) now recreates the MU-loader file if it is missing, preventing permanent loss after failed activation.
+- **Early translation loading warning** (WP 6.7+): `_load_textdomain_just_in_time` triggered by `define_screens()` calling `__()` from `__construct()` at `plugins_loaded` time (before `init`). Screen definitions are now lazy-loaded on first access, deferring translation calls until they are actually needed.
+
+### Changed
+- MU-plugin directory resolution now respects `WPMU_PLUGIN_DIR` constant consistently across all helper functions.
+
+### Breaking Changes
+- None. Backward-compatible bugfix release.
+
 ## [1.3.4] - 2026-03-10
 
 ### Fixed
-- GitHub release ZIP now stores raw archive entry names with POSIX separators (`/`) across platforms (no Windows backslashes in ZIP metadata).
+
 - Resolved Linux extraction edge case where uploaded release asset produced literal backslashes in extracted filenames and failed activation.
 
 ### Changed
-- Removed `tools/build-release.ps1` from plugin directory in repository to keep plugin tree clean.
-- Added explicit installation guidance to use release asset `smart-admin-plugin-manager.zip` instead of GitHub auto-generated source archives.
+- Removed tools/build-release.ps1 from plugin directory in repository to keep plugin tree clean.
+- Added explicit installation guidance to use release asset smart-admin-plugin-manager.zip instead of GitHub auto-generated source archives.
 
 ### Breaking Changes
 - None. Backward-compatible hotfix release.
@@ -231,6 +258,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 | SAPM Version | WordPress | PHP     | Tested With |
 |--------------|-----------|---------|-------------|
+| 1.3.6        | 6.0+      | 7.4+    | 6.8         |
+| 1.3.5        | 6.0+      | 7.4+    | 6.8         |
 | 1.3.2        | 6.0+      | 7.4+    | 6.8.3       |
 | 1.3.1        | 6.0+      | 7.4+    | 6.8.3       |
 | 1.3.0        | 6.0+      | 7.4+    | 6.8.3       |

@@ -3,7 +3,7 @@
  * Plugin Name: Smart Admin Plugin Manager
  * Plugin URI: https://ffs.cz
  * Description: Plugin loading management in WordPress admin - per screen control.
- * Version: 1.3.4
+ * Version: 1.3.6
  * Requires at least: 6.0
  * Requires PHP: 7.4
  * Author: FFS.cz
@@ -22,7 +22,7 @@ define('SAPM_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('SAPM_PLUGIN_URL', plugin_dir_url(__FILE__));
 
 if (!defined('SAPM_VERSION')) {
-    define('SAPM_VERSION', '1.3.4');
+    define('SAPM_VERSION', '1.3.6');
 }
 if (!defined('SAPM_OPTION_KEY')) {
     define('SAPM_OPTION_KEY', 'sapm_plugin_rules');
@@ -97,7 +97,11 @@ function sapm_get_mu_loader_contents(): string {
             " * Text Domain: sapm\n" .
             " */\n\n" .
             "if (!defined('ABSPATH')) {\n    exit;\n}\n\n" .
+            "$database_path = WP_PLUGIN_DIR . '/smart-admin-plugin-manager/includes/class-sapm-database.php';\n" .
             "$core_path = WP_PLUGIN_DIR . '/smart-admin-plugin-manager/includes/class-sapm-core.php';\n" .
+            "if (file_exists($database_path)) {\n" .
+            "    require_once $database_path;\n" .
+            "}\n" .
             "if (file_exists($core_path)) {\n" .
             "    require_once $core_path;\n" .
             "    if (class_exists('SAPM_Core')) {\n" .
@@ -110,20 +114,16 @@ function sapm_get_mu_loader_contents(): string {
 }
 
 function sapm_create_mu_loader(): void {
-    $mu_dir = WP_CONTENT_DIR . '/mu-plugins';
+    $mu_dir = defined('WPMU_PLUGIN_DIR') ? WPMU_PLUGIN_DIR : WP_CONTENT_DIR . '/mu-plugins';
     $mu_file = $mu_dir . '/smart-admin-plugin-manager.php';
 
-    $real_mu_dir = defined('WPMU_PLUGIN_DIR') ? realpath(WPMU_PLUGIN_DIR) : realpath(WP_CONTENT_DIR . '/mu-plugins');
-    if ($real_mu_dir === false) {
-        $real_content_dir = realpath(WP_CONTENT_DIR);
-        if ($real_content_dir === false || strpos($mu_dir, $real_content_dir) !== 0) {
-            return;
-        }
-    } else {
-        $expected_path = $real_mu_dir . DIRECTORY_SEPARATOR . 'smart-admin-plugin-manager.php';
-        if (realpath(dirname($mu_file)) !== $real_mu_dir) {
-            return;
-        }
+    // Normalize paths for cross-platform compatibility (Windows backslash vs forward slash)
+    $norm_mu_dir = wp_normalize_path($mu_dir);
+    $norm_content = wp_normalize_path(WP_CONTENT_DIR);
+
+    // Safety: mu-plugins dir must be inside wp-content
+    if (strpos($norm_mu_dir, $norm_content) !== 0) {
+        return;
     }
 
     if (!is_dir($mu_dir)) {
@@ -144,8 +144,13 @@ function sapm_remove_mu_loader(): void {
 }
 
 function sapm_maybe_refresh_mu_loader(): void {
-    $mu_file = WP_CONTENT_DIR . '/mu-plugins/smart-admin-plugin-manager.php';
+    $mu_file = defined('WPMU_PLUGIN_DIR')
+        ? WPMU_PLUGIN_DIR . '/smart-admin-plugin-manager.php'
+        : WP_CONTENT_DIR . '/mu-plugins/smart-admin-plugin-manager.php';
+
+    // Self-heal: create MU loader if it is missing
     if (!file_exists($mu_file)) {
+        sapm_create_mu_loader();
         return;
     }
 

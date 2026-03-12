@@ -5,7 +5,7 @@ if (!defined('ABSPATH')) {
 }
 
 if (!defined('SAPM_VERSION')) {
-    define('SAPM_VERSION', '1.3.4');
+    define('SAPM_VERSION', '1.3.5');
 }
 if (!defined('SAPM_OPTION_KEY')) {
     define('SAPM_OPTION_KEY', 'sapm_plugin_rules');
@@ -53,6 +53,9 @@ class SAPM_Core {
      * Key = internal ID, value = [label, pattern callback]
      */
     private $screen_definitions = [];
+
+    /** @var bool Whether screen definitions have been lazily initialized */
+    private $screens_defined = false;
 
     /** @var bool Protection against double bootstrap */
     private $bootstrapped = false;
@@ -143,7 +146,6 @@ class SAPM_Core {
     }
 
     private function __construct() {
-        $this->define_screens();
         $this->load_rules();
         $this->load_request_type_rules();
         $this->load_mode();
@@ -751,6 +753,7 @@ class SAPM_Core {
      * Get screen definitions
      */
     public function get_screen_definitions(): array {
+        $this->ensure_screens_defined();
         return $this->screen_definitions;
     }
 
@@ -951,6 +954,17 @@ class SAPM_Core {
     }
 
     /**
+     * Lazy-load screen definitions (deferred until first access to avoid early translation loading)
+     */
+    private function ensure_screens_defined(): void {
+        if ($this->screens_defined) {
+            return;
+        }
+        $this->screens_defined = true;
+        $this->define_screens();
+    }
+
+    /**
      * Definitions of admin screens with patterns
      */
     private function define_screens(): void {
@@ -1121,7 +1135,88 @@ class SAPM_Core {
      */
     private function load_rules(): void {
         $saved = get_option(SAPM_OPTION_KEY, []);
-        $this->rules = is_array($saved) ? $saved : [];
+        $saved = is_array($saved) ? $saved : [];
+
+        $migrated = $this->migrate_legacy_plugin_page_rules($saved);
+        if ($migrated !== $saved) {
+            update_option(SAPM_OPTION_KEY, $migrated);
+            $saved = $migrated;
+        }
+
+        $this->rules = $saved;
+    }
+
+    /**
+     * Migrate legacy generic plugin_pages rules.
+     *
+     * Older SAPM versions stored drawer / auto rules for concrete plugin admin
+     * pages under the generic `plugin_pages` definition. That caused rules from
+     * one plugin page (e.g. ZiziCache) to leak into every other plugin page.
+     *
+     * Migration strategy:
+     * - if `plugin_pages` bucket contains exactly one explicitly enabled plugin,
+     *   move the whole bucket to that plugin's top-level admin page screen ID
+     *   (e.g. `zizi-cache/zizi-cache.php` -> `toplevel_page_zizi-cache`)
+     * - otherwise preserve broad intent by moving generic rules to `_group_plugins`
+     */
+    private function migrate_legacy_plugin_page_rules(array $rules): array {
+        if (empty($rules['plugin_pages']) || !is_array($rules['plugin_pages'])) {
+            return $rules;
+        }
+
+        $legacy_bucket = $rules['plugin_pages'];
+        $enabled_plugins = [];
+
+        foreach ($legacy_bucket as $plugin => $state) {
+            if ($state === 'enabled') {
+                $enabled_plugins[] = $plugin;
+            }
+        }
+
+        if (count($enabled_plugins) === 1) {
+            $screen_id = $this->derive_plugin_page_screen_id_from_plugin($enabled_plugins[0]);
+            if ($screen_id !== null) {
+                if (!isset($rules[$screen_id]) || !is_array($rules[$screen_id])) {
+                    $rules[$screen_id] = [];
+                }
+
+                $rules[$screen_id] = array_merge($legacy_bucket, $rules[$screen_id]);
+                unset($rules['plugin_pages']);
+
+                return $rules;
+            }
+        }
+
+        if (!isset($rules['_group_plugins']) || !is_array($rules['_group_plugins'])) {
+            $rules['_group_plugins'] = [];
+        }
+
+        $rules['_group_plugins'] = array_merge($legacy_bucket, $rules['_group_plugins']);
+        unset($rules['plugin_pages']);
+
+        return $rules;
+    }
+
+    /**
+     * Derive top-level plugin admin screen ID from plugin basename.
+     */
+    private function derive_plugin_page_screen_id_from_plugin(string $plugin): ?string {
+        $plugin = trim($plugin);
+        if ($plugin === '') {
+            return null;
+        }
+
+        $slug = dirname($plugin);
+        if ($slug === '.' || $slug === '') {
+            $slug = basename($plugin, '.php');
+        }
+
+        $slug = sanitize_key($slug);
+        if ($slug === '') {
+            return null;
+        }
+
+        return 'toplevel_page_' . $slug;
     }
 
     /**
@@ -1274,6 +1369,61 @@ class SAPM_Core {
     }
 
     /**
+     * Infer plugins that should be allowed for a REST namespace.
+     *
+     * This prevents custom plugin REST APIs from disappearing when SAPM runs in
+     * REST whitelist mode and the namespace has not been manually configured yet.
+     *
+     * Matching strategy:
+     * - compare namespace root (before optional /vN suffix) against active plugin
+     *   directory / main file slug
+     * - compare normalized variants without dashes / underscores to support
+     *   namespaces like `zizicache/v1` for plugin dir `zizi-cache`
+     */
+    private function infer_plugins_from_rest_namespace(string $namespace, array $plugins): array {
+        $namespace = trim(strtolower($namespace));
+        if ($namespace === '') {
+            return [];
+        }
+
+        $root = preg_replace('#/v\d+$#', '', $namespace);
+        $root = trim((string) $root, '/');
+        if ($root === '') {
+            return [];
+        }
+
+        $normalized_root = preg_replace('/[^a-z0-9]+/', '', $root);
+        $matches = [];
+
+        foreach ($plugins as $plugin) {
+            $dir = dirname($plugin);
+            $file_slug = basename($plugin, '.php');
+
+            $candidates = [];
+            if ($dir !== '.' && $dir !== '') {
+                $candidates[] = strtolower($dir);
+                $candidates[] = preg_replace('/[^a-z0-9]+/', '', strtolower($dir));
+            }
+
+            $candidates[] = strtolower($file_slug);
+            $candidates[] = preg_replace('/[^a-z0-9]+/', '', strtolower($file_slug));
+
+            foreach (array_unique($candidates) as $candidate) {
+                if ($candidate === '' || $candidate === null) {
+                    continue;
+                }
+
+                if ($candidate === $root || $candidate === $normalized_root) {
+                    $matches[] = $plugin;
+                    break;
+                }
+            }
+        }
+
+        return array_values(array_unique($matches));
+    }
+
+    /**
      * Filter plugins for non-admin requests (AJAX/REST/Cron/CLI/Frontend)
      */
     private function filter_non_admin_plugins(array $plugins): array {
@@ -1346,6 +1496,11 @@ class SAPM_Core {
                             $enabled = array_merge($enabled, $matched_plugins);
                         }
                     }
+
+                    $enabled = array_merge(
+                        $enabled,
+                        $this->infer_plugins_from_rest_namespace($namespace, $plugins)
+                    );
                 }
             }
 
@@ -1401,12 +1556,28 @@ class SAPM_Core {
             return $rules[$plugin];
         }
 
-        $legacy_key = sanitize_file_name($plugin);
+        $legacy_key = $this->build_legacy_rule_key($plugin);
         if ($legacy_key !== $plugin && isset($rules[$legacy_key]) && in_array($rules[$legacy_key], ['enabled', 'disabled', 'defer'], true)) {
             return $rules[$legacy_key];
         }
 
         return null;
+    }
+
+    /**
+     * Build legacy rule key without forcing pluggable user APIs too early.
+     */
+    private function build_legacy_rule_key(string $plugin): string {
+        if (function_exists('wp_get_current_user')) {
+            return sanitize_file_name($plugin);
+        }
+
+        // Fallback for early MU bootstrap before pluggable.php is loaded.
+        $legacy_key = strtolower($plugin);
+        $legacy_key = preg_replace('/[^a-z0-9._\/-]+/', '-', $legacy_key);
+        $legacy_key = preg_replace('/-+/', '-', (string) $legacy_key);
+
+        return trim((string) $legacy_key, '-');
     }
 
     /**
@@ -1484,6 +1655,7 @@ class SAPM_Core {
      */
     public function get_current_screen_early(): string {
         global $pagenow;
+        $pagenow = is_string($pagenow) ? $pagenow : '';
 
         // If we already have WP_Screen object
         if (function_exists('get_current_screen')) {
@@ -1616,6 +1788,7 @@ class SAPM_Core {
      * Find matching screen definition
      */
     public function match_screen_definition(string $screen_id): ?string {
+        $this->ensure_screens_defined();
         // First try direct match
         foreach ($this->screen_definitions as $def_id => $def) {
             if (($def['matcher'])($screen_id)) {
@@ -1911,12 +2084,14 @@ class SAPM_Core {
      * Get effective rule (state + source)
      */
     public function get_effective_rule(string $plugin, string $screen_id, ?string $matched_def): array {
-        // Screen specific rule (primarily by def_id)
+        // Screen specific rule - always prefer exact raw screen ID first.
+        // This is especially important for dynamic plugin admin pages where
+        // `plugin_pages` is a broad matcher and must not behave like a concrete screen bucket.
         $screen_rules = [];
-        if ($matched_def && isset($this->rules[$matched_def]) && is_array($this->rules[$matched_def])) {
-            $screen_rules = $this->rules[$matched_def];
-        } elseif (isset($this->rules[$screen_id]) && is_array($this->rules[$screen_id])) {
+        if (isset($this->rules[$screen_id]) && is_array($this->rules[$screen_id])) {
             $screen_rules = $this->rules[$screen_id];
+        } elseif ($matched_def && $matched_def !== 'plugin_pages' && isset($this->rules[$matched_def]) && is_array($this->rules[$matched_def])) {
+            $screen_rules = $this->rules[$matched_def];
         }
 
         $screen_state = $this->get_rule_state($screen_rules, $plugin);
@@ -1957,6 +2132,22 @@ class SAPM_Core {
             'state' => null,
             'source' => null,
         ];
+    }
+
+    /**
+     * Resolve storage key for a concrete screen.
+     *
+     * Dynamic plugin admin pages must be stored by raw screen ID so rules from
+     * one plugin page do not leak into other plugin pages.
+     */
+    public function get_rule_storage_key(string $screen_id): string {
+        $matched_def = $this->match_screen_definition($screen_id);
+
+        if ($matched_def === 'plugin_pages') {
+            return $screen_id;
+        }
+
+        return $matched_def ?? $screen_id;
     }
 
     /**
